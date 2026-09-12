@@ -39,3 +39,13 @@ export interface ReschedulePayload {
   due_date: string;    // Nueva fecha ISO 8601
   reason?: string;
 }
+
+export interface ConflictData {
+  hasConflict: boolean;
+  currentHours: number;
+  addedHours: number;
+  limitHours: number;
+  taskToReschedule?: Task;
+}
+
+export type ResolutionAction = 'MOVE_DATE' | 'REDUCE_HOURS' | 'FORCE';

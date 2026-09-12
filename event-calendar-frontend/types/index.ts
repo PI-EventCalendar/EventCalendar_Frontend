@@ -10,5 +10,7 @@ export type {
   CreateTaskPayload,
   UpdateTaskPayload,
   ReschedulePayload,
+  ConflictData,
+  ResolutionAction,
 } from "@/features/tasks/types";
 export type { DailyLoad, TodayTasksSummary } from "@/features/dashboard/types";
