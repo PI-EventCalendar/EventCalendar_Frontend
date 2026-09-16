@@ -10,22 +10,35 @@ export default function DashboardPage() {
 
   // Simulación de prueba de reprogramación con conflicto (Tarea T3)
   const handleTestConflict = () => {
-    const mockTask: Task = {
-      id: 99,
-      event_id: 1,
-      title: 'Búsqueda de proveedores',
-      scheduled_date: '2026-09-12',
-      estimated_hours: 4.0,
-      status: 'PENDING',
-      priority: 'HIGH',
-    };
+
+    const mockTasks: Task[] = [
+
+      {
+        id: 1,
+        event: 1,
+        title: "Reunión de logística",
+        scheduled_date: "2026-09-20",
+        estimated_hours: 2,
+        status: "pending",
+        priority: "high",
+        description: "",
+        due_date: null,
+        category: null,
+        category_detail: null,
+        provider_name: "",
+        provider_company: "",
+        notes: "",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as Task,
+    ];
 
     setConflictData({
       hasConflict: true,
       currentHours: 4.0,
       addedHours: 4.0,
       limitHours: 6.0,
-      taskToReschedule: mockTask,
+      taskToReschedule: mockTasks[0],
     });
     setIsModalOpen(true);
   };

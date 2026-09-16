@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -18,23 +18,23 @@ import type { Event, CreateEventPayload, EventStatus } from "../types";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
-const eventSchema = z.object({
-  title: z.string().min(1, "El título es requerido").max(200),
-  description: z.string().optional(),
+export const eventSchema = z.object({
+  title: z.string().min(1, "El título es requerido"),
+  status: z.enum(["draft", "active", "completed", "cancelled"]).default("draft"),
   start_date: z.string().min(1, "La fecha de inicio es requerida"),
   end_date: z.string().min(1, "La fecha de fin es requerida"),
-  location: z.string().optional(),
-  status: z.enum(["draft", "active", "completed", "cancelled"]).default("draft"),
+  description: z.string().optional().default(""),
+  location: z.string().optional().default(""),
 });
 
-type EventFormValues = z.infer<typeof eventSchema>;
-
+// 2. Tipo derivado con z.input para compatibilidad estricta con useForm
+export type EventFormValues = z.input<typeof eventSchema>;
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface EventFormProps {
   /** Si se proporciona, rellena el formulario para edición */
   initialData?: Partial<Event>;
-  onSubmit: (payload: CreateEventPayload) => Promise<void>;
+  onSubmit: (values: EventFormValues) => Promise<void>;
   isLoading?: boolean;
   submitLabel?: string;
 }
@@ -57,22 +57,23 @@ export function EventForm({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       title: initialData?.title ?? "",
+      status: initialData?.status ?? "draft",
+      start_date: initialData?.start_date ?? "",
+      end_date: initialData?.end_date ?? "",
       description: initialData?.description ?? "",
-      start_date: initialData?.start_date?.slice(0, 16) ?? "",
-      end_date: initialData?.end_date?.slice(0, 16) ?? "",
       location: initialData?.location ?? "",
-      status: (initialData?.status as EventStatus) ?? "draft",
+          
     },
   });
 
   const statusValue = watch("status");
 
-  const handleFormSubmit = async (values: EventFormValues) => {
-    await onSubmit(values as CreateEventPayload);
+  const handleFormSubmit: SubmitHandler<EventFormValues> = async (values) => {
+    await onSubmit(values);
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4" noValidate>
+    <form onSubmit={handleSubmit(handleFormSubmit)}>
       {/* Título */}
       <div className="space-y-1">
         <Label htmlFor="event-title">Título *</Label>

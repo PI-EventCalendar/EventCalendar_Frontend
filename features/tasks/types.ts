@@ -14,13 +14,21 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  due_date: string | null;    // ISO 8601
+  due_date: string | null;     // ISO 8601
   event: number | null;       // event id (FK opcional)
   category: number | null;    // category id (FK opcional)
   category_detail: TaskCategory | null;
   owner: number;
   created_at: string;
   updated_at: string;
+  provider_name?: string; // blank=True
+  provider_company?: string; // blank=True
+  scheduled_date: string; // YYYY-MM-DD
+  estimated_hours: string | number; // DecimalField
+  notes?: string; // blank=True
+
+
+  
 }
 
 export interface CreateTaskPayload {

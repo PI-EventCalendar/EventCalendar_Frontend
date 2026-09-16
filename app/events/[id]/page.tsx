@@ -11,8 +11,8 @@ const mockEvent = {
   event_date: '2026-11-15',
   tasks: [
     { id: 101, title: 'Confirmar catering para 150 pax', estimated_hours: 1.5, scheduled_date: '2026-09-12', status: 'PENDING' as TaskStatus },
-    { id: 102, title: 'Reservar salón principal', estimated_hours: 2.0, scheduled_date: '2026-09-14', status: 'COMPLETED' as TaskStatus },
-    { id: 103, title: 'Enviar invitaciones VIP', estimated_hours: 1.0, scheduled_date: '2026-09-15', status: 'COMPLETED' as TaskStatus },
+    { id: 102, title: 'Reservar salón principal', estimated_hours: 2.0, scheduled_date: '2026-09-14', status: 'completed' as TaskStatus },
+    { id: 103, title: 'Enviar invitaciones VIP', estimated_hours: 1.0, scheduled_date: '2026-09-15', status: 'completed' as TaskStatus },
   ],
 };
 
@@ -20,7 +20,7 @@ export default function EventDetailPage() {
   const [event] = useState(mockEvent);
 
   // Cálculo de progreso (Tarea Núcleo T4)
-  const completedTasks = event.tasks.filter((t) => t.status === 'COMPLETED').length;
+  const completedTasks = event.tasks.filter((t) => t.status === 'completed').length;
   const totalTasks = event.tasks.length;
   const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -75,12 +75,12 @@ export default function EventDetailPage() {
                 <div className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={task.status === 'COMPLETED'}
+                    checked={task.status === 'completed'}
                     readOnly
                     className="h-5 w-5 rounded border-gray-300 text-indigo-600"
                   />
                   <div>
-                    <h3 className={`text-sm font-semibold ${task.status === 'COMPLETED' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                    <h3 className={`text-sm font-semibold ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                       {task.title}
                     </h3>
                     <span className="text-xs text-gray-500">
@@ -91,12 +91,12 @@ export default function EventDetailPage() {
 
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    task.status === 'COMPLETED'
+                    task.status === 'completed'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-yellow-100 text-yellow-800'
                   }`}
                 >
-                  {task.status === 'COMPLETED' ? 'Completado' : 'Pendiente'}
+                  {task.status === 'completed' ? 'Completado' : 'Pendiente'}
                 </span>
               </div>
             ))}

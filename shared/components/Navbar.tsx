@@ -63,7 +63,7 @@ export function Navbar() {
 
         {/* User menu */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Menú de usuario">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
