@@ -79,7 +79,7 @@ export default function EventsListPage() {
                   </div>
 
                   <Link
-                    href={`/events/${event.id}`}
+                    href={`/actividad/${event.id}`}
                     className="mt-3 block text-center w-full rounded-lg bg-gray-50 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition"
                   >
                     Ver Plan Logístico →
