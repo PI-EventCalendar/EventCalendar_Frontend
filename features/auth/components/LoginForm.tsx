@@ -40,7 +40,7 @@ export function LoginForm() {
 
     try {
       await login(values);
-      router.push("/dashboard");
+      router.push("/hoy");
     } catch {
       setServerError("Usuario o contraseña incorrectos.");
     }
@@ -50,7 +50,7 @@ export function LoginForm() {
   const handleDemoLogin = () => {
       localStorage.setItem("access_token", "demo-token-mvp");
       localStorage.setItem("user_name", "Usuario Demo");
-      router.push("/dashboard");
+      router.push("/hoy");
     };
 
   return (
