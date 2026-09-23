@@ -11,6 +11,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
+      //aca esta el JWT
       const token = localStorage.getItem("access_token");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;

@@ -1,9 +1,9 @@
 import apiClient from "@/lib/axios";
 import type { AuthTokens, LoginPayload, RegisterPayload, User } from "../types";
 
-/** POST /auth/token/ — obtiene access + refresh tokens */
+/**POST /api/v1/auth/login/ — obtiene access + refresh tokens */
 export async function loginUser(payload: LoginPayload): Promise<AuthTokens> {
-  const { data } = await apiClient.post<AuthTokens>("/auth/token/", payload);
+  const { data } = await apiClient.post<AuthTokens>("/auth/login/", payload);
   return data;
 }
 
@@ -24,6 +24,6 @@ export async function refreshToken(refresh: string): Promise<Pick<AuthTokens, "a
 
 /** GET /auth/me/ — obtiene el usuario autenticado actual */
 export async function getCurrentUser(): Promise<User> {
-  const { data } = await apiClient.get<User>("/auth/me/");
+  const { data } = await apiClient.get<User>("/auth/profile/");
   return data;
 }

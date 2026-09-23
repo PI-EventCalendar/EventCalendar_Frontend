@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';//Cargar eventos con useEFFECT cuando se abra la pagina
 import Link from 'next/link';
+import apiClient from '@/lib/axios';
 
 import Sidebar from '@/components/ui/Sidebar';
-import CreateEventModal from '@/components/ui/CreateEventModal';
-
+import CreateEventModal, {
+  CreatedEvent,
+} from '@/components/ui/CreateEventModal';
+/*
 // Datos de prueba (mock) de la lista de eventos
 const mockEvents = [
   {
@@ -25,14 +28,170 @@ const mockEvents = [
     completed_tasks: 1,
   },
 ];
+*/
+// Estructura de un evento recibida desde el backend.
+interface Event {
+  id: number;
+  title: string;
+  course: string;
+  activity_type: string;
+  description: string;
+  event_date: string;
+  progress_percentage: number;
+  total_tasks: number;
+  completed_tasks: number;
+  tasks: unknown[];
+  created_at: string;
+}
+
+
 
 export default function EventsListPage() {
 
-  // Lista de eventos
-  const [events] = useState(mockEvents);
+  // ============================================================
+  // ESTADO DE LOS EVENTOS
+  // ============================================================
+
+  // Lista de eventos obtenidos desde el backend.
+  const [events, setEvents] = useState<Event[]>([]);
 
   // Controla si el modal de crear evento está abierto
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+  //MENSAJE DE EXITO
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // ============================================================
+  // OBTENER EVENTOS
+  // ============================================================
+  //
+  // Endpoint:
+  //
+  // GET /api/v1/events/
+  //
+  // apiClient ya tiene configurado el /api/v1
+  // mediante NEXT_PUBLIC_API_URL.
+  
+  const loadEvents = async () => {
+    try {
+      // Realizamos la petición:
+      // GET /api/v1/events/
+      const response = await apiClient.get('/events/');
+
+      // Mostramos la respuesta para conocer
+      // exactamente la estructura enviada por Django.
+      console.log('Respuesta de eventos:', response.data);
+
+      // Si el backend devuelve directamente un arreglo,
+      // utilizamos ese arreglo.
+      //
+      // Si Django utiliza paginación y devuelve:
+      // { count, next, previous, results }
+      // utilizamos response.data.results.
+      const eventsData = Array.isArray(response.data)
+        ? response.data
+        : response.data.results;
+
+      // Guardamos únicamente el arreglo de eventos.
+      setEvents(eventsData);
+
+    } catch (error) {
+      console.error('Error al cargar los eventos:', error);
+    }
+  };
+
+  // ============================================================
+  // CARGAR EVENTOS AL ABRIR LA PÁGINA
+  // ============================================================
+  //
+  // useEffect se ejecuta cuando el componente se monta.
+  //
+  useEffect(() => {
+
+    loadEvents();
+
+  }, []);
+
+
+
+    // ============================================================
+  // CREAR EVENTO EN EL BACKEND
+  // ============================================================
+  //
+  // Recibe la información que viene del modal y la envía
+  // al endpoint de Django:
+
+  const handleEventSaved = async (newEvent: CreatedEvent) => {
+
+
+    try {
+
+      // --------------------------------------------------------
+      // 1. Enviar el evento al backend
+      // --------------------------------------------------------
+      //
+      // apiClient ya tiene configurada la URL base y
+      // también agrega automáticamente el JWT.
+      //
+      const response = await apiClient.post('/events/', newEvent);
+
+      // --------------------------------------------------------
+      // 2. Obtener el evento creado
+      // --------------------------------------------------------
+      //
+      // Django devuelve el evento con:
+      //
+      // - id real de la BD
+      // - total_tasks
+      // - completed_tasks
+      // - progress_percentage
+      // - tasks
+      //
+      const createdEvent = response.data;
+
+      console.log('Evento creado correctamente:', createdEvent);
+
+      // --------------------------------------------------------
+      // 3. Agregar el evento creado a la lista visual
+      // --------------------------------------------------------
+      //
+      // IMPORTANTE:
+      // Usamos el ID que viene de Django.
+      // Ya NO usamos Date.now().
+      //
+      setEvents((currentEvents) => [
+        ...currentEvents,
+        createdEvent,
+      ]);
+
+      // --------------------------------------------------------
+      // 4. Mostrar mensaje de éxito
+      // --------------------------------------------------------
+
+      setSuccessMessage("Evento guardado exitosamente.");
+
+      // Ocultamos el mensaje después de 3 segundos.
+      setTimeout(() => {
+        setSuccessMessage("");
+      }, 3000);
+
+    } catch (error) {
+
+      // --------------------------------------------------------
+      // 5. Manejo de errores
+      // --------------------------------------------------------
+      //
+      // Si Django rechaza la petición, el evento NO se agrega
+      // visualmente como si se hubiera guardado.
+      //
+      console.error("Error al guardar el evento:", error);
+
+      setSuccessMessage("No fue posible guardar el evento.");
+
+      setTimeout(() => {
+        setSuccessMessage("");
+      }, 3000);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,6 +201,23 @@ export default function EventsListPage() {
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="ml-64 min-h-screen">
+        {successMessage && (
+          <div className="fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl border border-green-200 bg-white px-5 py-4 shadow-lg">
+            <span className="material-symbols-outlined text-green-600">
+              check_circle
+            </span>
+
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Guardado exitosamente
+              </p>
+
+              <p className="text-xs text-gray-500">
+                El evento fue agregado a Mis Eventos.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="p-8 max-w-6xl mx-auto space-y-6">
 
@@ -155,6 +331,7 @@ export default function EventsListPage() {
       <CreateEventModal
         isOpen={isCreateEventOpen}
         onClose={() => setIsCreateEventOpen(false)}
+        onSave={handleEventSaved}
       />
 
     </div>
