@@ -39,19 +39,65 @@ export function LoginForm() {
     setServerError(null);
 
     try {
+      console.log("1. Datos del formulario:", values);
+
+      // Ejecuta el login del AuthContext.
       await login(values);
+
+      console.log("2. Login exitoso");
+      console.log(
+        "3. Access token:",
+        localStorage.getItem("access_token") ? "Existe" : "NO existe"
+      );
+
+      // Si llegamos aquí, la autenticación terminó correctamente.
+      console.log("4. Redirigiendo a /hoy");
+
       router.push("/hoy");
-    } catch {
+
+    } catch (error) {
+      console.error("5. Error durante login:", error);
+
       setServerError("Usuario o contraseña incorrectos.");
     }
 
   };
 
-  const handleDemoLogin = () => {
-      localStorage.setItem("access_token", "demo-token-mvp");
-      localStorage.setItem("user_name", "Usuario Demo");
+    // Login rápido utilizando el usuario demo real de Django.
+  const handleDemoLogin = async () => {
+    // Limpiamos cualquier error anterior.
+    setServerError(null);
+
+    try {
+      // Utilizamos el mismo sistema de autenticación
+      // que utiliza el formulario de login tradicional.
+      //
+      // Esto hará:
+      //
+      // POST /api/v1/auth/login/
+      //
+      // Django devolverá un JWT real.
+      await login({
+        username: "demo",
+        password: "Demo1234",
+      });
+
+      // AuthContext se encarga automáticamente de guardar:
+      //
+      // access_token
+      // refresh_token
+      //
+      // Por eso aquí NO guardamos ningún token manualmente.
+
       router.push("/hoy");
-    };
+
+    } catch (error) {
+      // Si Django rechaza el login, mostramos el error.
+      console.error("Error en login demo:", error);
+
+      setServerError("No se pudo iniciar la sesión demo.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#faf8ff] font-sans text-[#131b2e] flex flex-col justify-center items-center">
