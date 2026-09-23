@@ -327,7 +327,7 @@ export default function EventsListPage() {
 
       </main>
 
-      {/* MODAL CREAR EVENTO */}
+      {/* MODAL CREAR EVENTO.. */}
       <CreateEventModal
         isOpen={isCreateEventOpen}
         onClose={() => setIsCreateEventOpen(false)}
