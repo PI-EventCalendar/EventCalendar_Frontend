@@ -8,27 +8,7 @@ import Sidebar from '@/components/ui/Sidebar';
 import CreateEventModal, {
   CreatedEvent,
 } from '@/components/ui/CreateEventModal';
-/*
-// Datos de prueba (mock) de la lista de eventos
-const mockEvents = [
-  {
-    id: 1,
-    title: 'Gala Anual Innovatech 2026',
-    description: 'Organización logística del evento principal corporativo.',
-    event_date: '2026-11-15',
-    total_tasks: 3,
-    completed_tasks: 2,
-  },
-  {
-    id: 2,
-    title: 'Boda Carolina & Mateo',
-    description: 'Coordinación de proveedores, banquetes y montaje.',
-    event_date: '2026-12-05',
-    total_tasks: 5,
-    completed_tasks: 1,
-  },
-];
-*/
+
 // Estructura de un evento recibida desde el backend.
 interface Event {
   id: number;
@@ -44,19 +24,19 @@ interface Event {
   created_at: string;
 }
 
-
-
 export default function EventsListPage() {
 
   // ============================================================
   // ESTADO DE LOS EVENTOS
   // ============================================================
-
   // Lista de eventos obtenidos desde el backend.
   const [events, setEvents] = useState<Event[]>([]);
 
   // Controla si el modal de crear evento está abierto
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+  // Evento que se está editando.
+  // Si es null, estamos creando uno nuevo.
+  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   //MENSAJE DE EXITO
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -90,12 +70,68 @@ export default function EventsListPage() {
       const eventsData = Array.isArray(response.data)
         ? response.data
         : response.data.results;
+        
 
       // Guardamos únicamente el arreglo de eventos.
       setEvents(eventsData);
 
     } catch (error) {
       console.error('Error al cargar los eventos:', error);
+    }
+  };
+  
+  //EDICION DE. UN EVENTO (abre el mismo evento)
+  const handleEditEvent = async (eventId: number) => {
+    try {
+      
+      console.log("Cargando evento para editar:", eventId);
+
+      const response = await apiClient.get(`/events/${eventId}/`);
+
+      console.log("Evento recibido para editar:", response.data);
+
+      setEventToEdit(response.data);
+      setIsCreateEventOpen(true);
+
+    } catch (error) {
+      console.error(
+        "Error al cargar el evento para editar:",
+        error
+      );
+
+      alert("No fue posible cargar la información del evento.");
+    }
+  };
+
+  //ELIMINAR EL EVENTO
+  const handleDeleteEvent = async (eventId: number) => {
+
+    const confirmed = window.confirm(
+      "¿Estás seguro de que deseas eliminar este evento?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/events/${eventId}/`);
+
+      // Eliminamos el evento de la interfaz
+      setEvents((currentEvents) =>
+        currentEvents.filter((event) => event.id !== eventId)
+      );
+
+      setSuccessMessage("Evento eliminado exitosamente.");
+
+      setTimeout(() => {
+        setSuccessMessage("");
+      }, 3000);
+
+    } catch (error) {
+      console.error("Error al eliminar el evento:", error);
+
+      alert("No fue posible eliminar el evento.");
     }
   };
 
@@ -272,13 +308,44 @@ export default function EventsListPage() {
 
                     <div className="space-y-3">
 
+
                       <div className="flex justify-between items-start">
 
                         <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
                           {event.event_date}
                         </span>
 
+                        <div className="flex items-center gap-2">
+
+                          {/* EDITAR */}
+                          <button
+                            type="button"
+                            onClick={() => handleEditEvent(event.id)}
+                            title="Editar evento"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              edit
+                            </span>
+                          </button>
+
+                          {/* ELIMINAR */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(event.id)}
+                            title="Eliminar evento"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              delete
+                            </span>
+                          </button>
+
+                        </div>
+
                       </div>
+
+              
 
                       <h2 className="text-lg font-bold text-gray-900">
                         {event.title}
@@ -330,10 +397,13 @@ export default function EventsListPage() {
       {/* MODAL CREAR EVENTO */}
       <CreateEventModal
         isOpen={isCreateEventOpen}
-        onClose={() => setIsCreateEventOpen(false)}
+        onClose={() => {
+          setIsCreateEventOpen(false);
+          setEventToEdit(null);
+        }}
         onSave={handleEventSaved}
+        eventToEdit={eventToEdit}
       />
-
     </div>
   );
 }

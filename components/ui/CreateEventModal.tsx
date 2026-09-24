@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /*
  * ============================================================================
@@ -30,12 +30,26 @@ export interface CreatedEvent {
   }[];
 
   /**
-   * Estos valores se utilizan para mostrar
-   * el resumen inmediatamente en la interfaz.
+   * el resumen en la interfaz.
    */
   total_tasks: number;
   completed_tasks: number;
 }
+//EDICION (OJO AGREGAR COURSE)
+interface EventToEdit {
+  id: number;
+  title: string;
+  activity_type: string;
+  description: string;
+  event_date: string;
+  tasks: {
+    title: string;
+    scheduled_date: string;
+    estimated_hours: string | number;
+    status: string;
+  }[];
+}
+
 
 /**
  * Props que recibe el modal desde actividad/page.tsx
@@ -43,12 +57,15 @@ export interface CreatedEvent {
 interface CreateEventModalProps {
   // Indica si el modal está visible
   isOpen: boolean;
-
   // Función para cerrar el modal
   onClose: () => void;
-
   // Función que recibe el evento creado
   onSave: (event: CreatedEvent) => Promise<void>;
+
+   // Evento cargado desde Django cuando estamos editando
+  eventToEdit?: EventToEdit | null;
+
+  
 }
 
 /**
@@ -72,6 +89,7 @@ export default function CreateEventModal({
   isOpen,
   onClose,
   onSave,
+  eventToEdit,
 }: CreateEventModalProps) {
 
   /*
@@ -96,6 +114,84 @@ export default function CreateEventModal({
 
   // Lugar del evento
   const [location, setLocation] = useState("");
+
+
+  useEffect(() => {
+
+    // Si no estamos editando, no hacemos nada.
+    if (!eventToEdit) {
+      return;
+    }
+
+    console.log("Cargando datos en el modal:", eventToEdit);
+
+    // ============================
+    // DATOS DEL EVENTO
+    // ============================
+
+    setEventName(eventToEdit.title);
+
+    setEventType(
+      eventToEdit.activity_type || "Conferencia Corporativa"
+    );
+
+    /*
+    * El backend actualmente guarda:
+    *
+    * "description": "Cliente: juans"
+    *
+    * Por eso recuperamos el cliente
+    * desde ese texto.
+    */
+    const description = eventToEdit.description || "";
+
+    if (description.startsWith("Cliente: ")) {
+      setClient(
+        description.replace("Cliente: ", "")
+      );
+    } else {
+      setClient("");
+    }
+
+  
+    setEventDate(
+      eventToEdit.event_date
+        ? `${eventToEdit.event_date}T00:00`
+        : ""
+    );
+
+    /*
+    * El backend actual no tiene todavía
+    * un campo para location.
+    */
+    setLocation("");
+
+    // ============================
+    // TAREAS
+    // ============================
+
+    setSubtasks(
+      (eventToEdit.tasks || []).map((task, index) => ({
+        /*
+        * El NestedTaskCreateSerializer actualmente
+        * no devuelve el ID de la tarea.
+        *
+        * Para el listado visual usamos un ID
+        * temporal basado en el índice.
+        */
+        id: index + 1,
+
+        name: task.title,
+
+        date: task.scheduled_date,
+
+        hours: Number(task.estimated_hours),
+
+        provider: "",
+      }))
+    );
+
+  }, [eventToEdit]);
 
 
   /*
