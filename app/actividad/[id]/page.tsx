@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { TaskStatus } from '@/types';
 import apiClient from '@/lib/axios';
+import { RescheduleModal } from '@/features/tasks/components/RescheduleModal';
 
 // ============================================================
 // TIPOS
@@ -79,6 +80,8 @@ export default function EventDetailPage() {
   // Esto sirve para evitar que el usuario haga varios clics
   // mientras Django está procesando el PATCH.
   const [updatingTaskId, setUpdatingTaskId] = useState<number | null>(null);
+  const [taskToReschedule, setTaskToReschedule] = useState<EventTask | null>(null);
+  const [rescheduleSuccess, setRescheduleSuccess] = useState('');
 
 
   // ============================================================
@@ -402,6 +405,12 @@ export default function EventDetailPage() {
 
       </div>
 
+      {rescheduleSuccess && (
+        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status" aria-live="polite">
+          {rescheduleSuccess}
+        </p>
+      )}
+
 
       {/* ========================================================
           BARRA DE PROGRESO
@@ -576,6 +585,14 @@ export default function EventDetailPage() {
 
                 </span>
 
+                <button
+                  type="button"
+                  onClick={() => setTaskToReschedule(task)}
+                  className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  Reprogramar
+                </button>
+
               </div>
 
             ))}
@@ -585,6 +602,17 @@ export default function EventDetailPage() {
         )}
 
       </div>
+
+      <RescheduleModal
+        key={`${taskToReschedule?.id ?? 'none'}-${!!taskToReschedule}`}
+        task={taskToReschedule}
+        open={!!taskToReschedule}
+        onOpenChange={(open) => !open && setTaskToReschedule(null)}
+        onSuccess={() => {
+          setRescheduleSuccess('Fecha actualizada');
+          loadEvent();
+        }}
+      />
 
     </div>
   );
