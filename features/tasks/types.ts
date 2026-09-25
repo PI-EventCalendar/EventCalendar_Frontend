@@ -16,6 +16,8 @@ export interface Task {
   priority: TaskPriority;
   due_date: string | null;     // ISO 8601
   event: number | null;       // event id (FK opcional)
+  event_title?: string;
+  event_course?: string;
   category: number | null;    // category id (FK opcional)
   category_detail: TaskCategory | null;
   owner: number;
@@ -44,8 +46,7 @@ export interface CreateTaskPayload {
 export type UpdateTaskPayload = Partial<CreateTaskPayload>;
 
 export interface ReschedulePayload {
-  due_date: string;    // Nueva fecha ISO 8601
-  reason?: string;
+  scheduled_date: string; // YYYY-MM-DD, igual al DateField del backend
 }
 
 export interface ConflictData {

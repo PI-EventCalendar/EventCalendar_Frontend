@@ -49,6 +49,7 @@ export function useUpdateTask(id: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: taskQueryKey(id) });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
