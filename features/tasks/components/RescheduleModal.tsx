@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,31 +14,36 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useRescheduleTask } from "../hooks/useTasks";
-import type { Task } from "../types";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 const rescheduleSchema = z.object({
-  due_date: z.string().min(1, "La nueva fecha es requerida"),
-  reason: z.string().optional(),
+  scheduled_date: z.string().min(1, "La nueva fecha es requerida"),
 });
 
 type RescheduleFormValues = z.infer<typeof rescheduleSchema>;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+export interface ReschedulableTask {
+  id: number;
+  title: string;
+  scheduled_date: string;
+}
+
 interface RescheduleModalProps {
-  task: Task | null;
+  task: ReschedulableTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function RescheduleModal({ task, open, onOpenChange }: RescheduleModalProps) {
+export function RescheduleModal({ task, open, onOpenChange, onSuccess }: RescheduleModalProps) {
   const { mutateAsync: reschedule, isPending } = useRescheduleTask(task?.id ?? 0);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   const {
     register,
@@ -46,52 +52,58 @@ export function RescheduleModal({ task, open, onOpenChange }: RescheduleModalPro
     formState: { errors },
   } = useForm<RescheduleFormValues>({
     resolver: zodResolver(rescheduleSchema),
-    defaultValues: {
-      due_date: task?.due_date?.slice(0, 16) ?? "",
-      reason: "",
-    },
+    defaultValues: { scheduled_date: task?.scheduled_date ?? "" },
   });
 
   const onSubmit = async (values: RescheduleFormValues) => {
     if (!task) return;
-    await reschedule(values);
-    reset();
-    onOpenChange(false);
+    setRequestError(null);
+    try {
+      await reschedule(values);
+      onSuccess?.();
+      reset();
+      onOpenChange(false);
+    } catch {
+      // La fecha no se reinicia para que la persona pueda reintentarla.
+      setRequestError("No se pudo reprogramar. Verifica la fecha e inténtalo de nuevo.");
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!nextOpen) setRequestError(null);
+      onOpenChange(nextOpen);
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Reprogramar tarea</DialogTitle>
+          <DialogTitle>Reprogramar subtarea</DialogTitle>
           <DialogDescription>
-            {task?.title} — Selecciona una nueva fecha límite
+            {task?.title} — Selecciona una nueva fecha
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2" noValidate>
           <div className="space-y-1">
-            <Label htmlFor="reschedule-date">Nueva fecha límite *</Label>
+            <Label htmlFor="reschedule-date">Nueva fecha</Label>
             <Input
               id="reschedule-date"
-              type="datetime-local"
-              aria-invalid={!!errors.due_date}
-              {...register("due_date")}
+              type="date"
+              aria-invalid={!!errors.scheduled_date}
+              aria-describedby={errors.scheduled_date || requestError ? "reschedule-error" : undefined}
+              {...register("scheduled_date")}
             />
-            {errors.due_date && (
-              <p className="text-xs text-destructive">{errors.due_date.message}</p>
+            {errors.scheduled_date && (
+              <p id="reschedule-error" className="text-xs text-destructive" role="alert">
+                {errors.scheduled_date.message}
+              </p>
             )}
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="reschedule-reason">Motivo (opcional)</Label>
-            <Textarea
-              id="reschedule-reason"
-              placeholder="¿Por qué se reprograma esta tarea?"
-              rows={2}
-              {...register("reason")}
-            />
-          </div>
+          {requestError && (
+            <p id="reschedule-error" className="text-sm text-destructive" role="alert" aria-live="assertive">
+              {requestError}
+            </p>
+          )}
 
           <div className="flex gap-2 justify-end">
             <Button
@@ -103,7 +115,7 @@ export function RescheduleModal({ task, open, onOpenChange }: RescheduleModalPro
               Cancelar
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Guardando..." : "Reprogramar"}
+              {isPending ? "Guardando..." : requestError ? "Reintentar" : "Guardar"}
             </Button>
           </div>
         </form>
