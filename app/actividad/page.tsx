@@ -20,7 +20,13 @@ interface Event {
   progress_percentage: number;
   total_tasks: number;
   completed_tasks: number;
-  tasks: unknown[];
+  tasks: {
+    title: string;
+    scheduled_date: string;
+    estimated_hours: string | number;
+    status: string;
+  }[];
+  //Verifi
   created_at: string;
 }
 
