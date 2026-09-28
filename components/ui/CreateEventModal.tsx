@@ -23,6 +23,7 @@ export interface CreatedEvent {
    * junto con el evento.
    */
   tasks: {
+    id: number;
     title: string;
     scheduled_date: string;
     estimated_hours: number;
@@ -35,7 +36,7 @@ export interface CreatedEvent {
   total_tasks: number;
   completed_tasks: number;
 }
-//EDICION (OJO AGREGAR COURSE)
+//EDICION 
 interface EventToEdit {
   id: number;
   title: string;
@@ -43,6 +44,7 @@ interface EventToEdit {
   description: string;
   event_date: string;
   tasks: {
+    id: number;
     title: string;
     scheduled_date: string;
     estimated_hours: string | number;
@@ -118,80 +120,133 @@ export default function CreateEventModal({
 
   useEffect(() => {
 
-    // Si no estamos editando, no hacemos nada.
+    // ============================================================
+    // CREAR NUEVO EVENTO
+    // ============================================================
+
     if (!eventToEdit) {
+
+      // Limpiamos los datos principales del evento.
+      setEventName("");
+      setEventType("Conferencia Corporativa");
+      setClient("");
+      setEventDate("");
+      setLocation("");
+
+      // Limpiamos las subtareas.
+      setSubtasks([]);
+
+      // Limpiamos también el formulario de nueva subtarea.
+      setTaskName("");
+      setTaskDate("");
+      setTaskHours("");
+      setTaskProvider("");
+
+      // Limpiamos errores anteriores.
+      setErrors({});
+      setTaskErrors({});
+
       return;
     }
 
-    console.log("Cargando datos en el modal:", eventToEdit);
 
-    // ============================
-    // DATOS DEL EVENTO
-    // ============================
+    // ============================================================
+    // EDITAR EVENTO EXISTENTE
+    // ============================================================
 
+    console.log(
+      "Cargando evento para editar:",
+      eventToEdit
+    );
+
+    // Cargamos los datos principales.
     setEventName(eventToEdit.title);
 
     setEventType(
-      eventToEdit.activity_type || "Conferencia Corporativa"
+      eventToEdit.activity_type ||
+      "Conferencia Corporativa"
     );
 
-    /*
-    * El backend actualmente guarda:
-    *
-    * "description": "Cliente: juans"
-    *
-    * Por eso recuperamos el cliente
-    * desde ese texto.
-    */
+
+    // ============================================================
+    // CLIENTE
+    // ============================================================
+
     const description = eventToEdit.description || "";
 
     if (description.startsWith("Cliente: ")) {
+
       setClient(
         description.replace("Cliente: ", "")
       );
+
     } else {
+
       setClient("");
     }
 
-  
+
+    // ============================================================
+    // FECHA
+    // ============================================================
+
     setEventDate(
       eventToEdit.event_date
         ? `${eventToEdit.event_date}T00:00`
         : ""
     );
 
-    /*
-    * El backend actual no tiene todavía
-    * un campo para location.
-    */
+
+    // El backend todavía no maneja location.
     setLocation("");
 
-    // ============================
-    // TAREAS
-    // ============================
 
-    setSubtasks(
-      (eventToEdit.tasks || []).map((task, index) => ({
-        /*
-        * El NestedTaskCreateSerializer actualmente
-        * no devuelve el ID de la tarea.
-        *
-        * Para el listado visual usamos un ID
-        * temporal basado en el índice.
-        */
-        id: index + 1,
+    // ============================================================
+    // CARGAR SUBTAREAS
+    // ============================================================
 
-        name: task.title,
+    const loadedTasks = (eventToEdit.tasks || []).map((task) => ({
 
-        date: task.scheduled_date,
+      // IMPORTANTE:
+      // Conservamos el ID real que viene de Django.
+      id: task.id,
 
-        hours: Number(task.estimated_hours),
+      name: task.title,
 
-        provider: "",
-      }))
+      date: task.scheduled_date,
+
+      hours: Number(task.estimated_hours),
+
+      provider: "",
+    }));
+
+
+    console.log(
+      "Subtareas cargadas en el modal:",
+      loadedTasks
     );
 
-  }, [eventToEdit]);
+
+    setSubtasks(loadedTasks);
+
+
+    // ============================================================
+    // LIMPIAR FORMULARIO DE NUEVA SUBTAREA
+    // ============================================================
+
+    setTaskName("");
+    setTaskDate("");
+    setTaskHours("");
+    setTaskProvider("");
+
+    setErrors({});
+    setTaskErrors({});
+
+
+  // IMPORTANTE:
+  // isOpen permite volver a cargar/resetear correctamente
+  // cuando el modal se abre nuevamente.
+  }, [eventToEdit, isOpen]);
 
 
   /*
@@ -457,16 +512,6 @@ export default function CreateEventModal({
    * ==========================================================================
    */
 
-  /**
-   * Suma las horas de todas las subtareas.
-   *
-   * Ejemplo:
-   *
-   * Tarea 1 -> 2h
-   * Tarea 2 -> 3.5h
-   *
-   * Total -> 5.5h
-   */
   const totalHours = subtasks.reduce(
     (total, task) => total + task.hours,
     0
@@ -474,19 +519,10 @@ export default function CreateEventModal({
 
 
   /*
-   * ==========================================================================
    * GUARDAR COMO BORRADOR
-   * ==========================================================================
    */
 
-  /**
-   * Actualmente el botón de borrador conserva
-   * el comportamiento que ya tenías:
-   *
-   * mostrar la información en consola.
-   *
-   * Posteriormente podremos conectarlo con Django.
-   */
+  
   const handleSaveDraft = () => {
 
     console.log("Guardar borrador", {
@@ -501,11 +537,7 @@ export default function CreateEventModal({
 
 
   /*
-   * ==========================================================================
    * GUARDAR Y PUBLICAR EVENTO
-   * ==========================================================================
-   */
-
   /**
    * Esta función se ejecuta cuando el usuario
    * presiona "Guardar y Publicar Evento".
@@ -549,12 +581,6 @@ export default function CreateEventModal({
       description: client.trim()
         ? `Cliente: ${client.trim()}`
         : "Evento pendiente de planificación logística.",
-
-      // datetime-local devuelve:
-      // 2026-11-15T09:00
-      //
-      // El backend actualmente maneja la fecha
-      // como YYYY-MM-DD.
       event_date: eventDate.split("T")[0],
 
       /**
@@ -562,6 +588,7 @@ export default function CreateEventModal({
        * al formato que maneja el backend.
        */
       tasks: subtasks.map((task) => ({
+        id: task.id,
         title: task.name,
         scheduled_date: task.date,
         estimated_hours: task.hours,
@@ -588,6 +615,16 @@ export default function CreateEventModal({
      * La página se encargará de hacer el POST
      * al backend.
      */
+    console.log(
+      "SUBTAREAS DEL MODAL ANTES DE GUARDAR:",
+      subtasks
+    );
+
+    console.log(
+      "PAYLOAD COMPLETO DEL EVENTO:",
+      newEvent
+    );
+
     await onSave(newEvent);
 
     /**
@@ -728,11 +765,12 @@ export default function CreateEventModal({
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
 
+
                   {/* ======================================================
                       NOMBRE DEL EVENTO
                   ======================================================= */}
 
-                  <div className="md:col-span-2">
+                  <div>
 
                     <label className="mb-1 block text-xs font-semibold text-gray-700">
                       Nombre del Evento *
@@ -745,10 +783,6 @@ export default function CreateEventModal({
 
                         setEventName(e.target.value);
 
-                        /*
-                         * Cuando el usuario comienza a corregir
-                         * el campo, eliminamos su mensaje de error.
-                         */
                         setErrors((current) => ({
                           ...current,
                           eventName: undefined,
@@ -762,7 +796,6 @@ export default function CreateEventModal({
                       }`}
                     />
 
-                    {/* Mensaje de error */}
                     {errors.eventName && (
                       <p className="mt-1 text-xs text-red-600">
                         {errors.eventName}
@@ -826,7 +859,6 @@ export default function CreateEventModal({
 
                     </select>
 
-                    {/* Mensaje de error */}
                     {errors.eventType && (
                       <p className="mt-1 text-xs text-red-600">
                         {errors.eventType}
@@ -835,12 +867,11 @@ export default function CreateEventModal({
 
                   </div>
 
-
                   {/* ======================================================
                       CLIENTE / CONTACTO
                   ======================================================= */}
-
-                  <div>
+                    
+                   <div className="md:col-span-2">
 
                     <label className="mb-1 block text-xs font-semibold text-gray-700">
                       Cliente / Contacto
@@ -886,7 +917,6 @@ export default function CreateEventModal({
                       }`}
                     />
 
-                    {/* Mensaje de error */}
                     {errors.eventDate && (
                       <p className="mt-1 text-xs text-red-600">
                         {errors.eventDate}
@@ -900,7 +930,7 @@ export default function CreateEventModal({
                       LUGAR
                   ======================================================= */}
 
-                  <div>
+                   <div>
 
                     <label className="mb-1 block text-xs font-semibold text-gray-700">
                       Lugar / Plazo límite
@@ -915,7 +945,6 @@ export default function CreateEventModal({
                     />
 
                   </div>
-
                 </div>
 
               </section>
@@ -1163,10 +1192,10 @@ export default function CreateEventModal({
                         PROVEEDOR / RESPONSABLE
                     ===================================================== */}
 
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-12">
 
                       <label className="mb-1 block text-xs font-medium text-gray-700">
-                        Proveedor / Resp.
+                        Proveedor / Responsable
                       </label>
 
                       <input

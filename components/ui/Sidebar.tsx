@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-
+import { usePathname } from "next/navigation";
 function DashboardIcon() {
   return (
     <svg
@@ -52,6 +52,22 @@ function SettingsIcon() {
 }
 
 export default function Sidebar() {
+   // Obtiene la ruta actual del navegador.
+  // Ejemplos:
+  // /hoy
+  // /actividad
+  // /actividad/20
+  const pathname = usePathname();
+
+  // Inicio está activo únicamente en /hoy.
+  const isInicioActive = pathname === "/hoy";
+
+  // Eventos permanece activo tanto en /actividad
+  // como en cualquier página hija, por ejemplo /actividad/20.
+  const isEventosActive =
+    pathname === "/actividad" ||
+    pathname.startsWith("/actividad/");
+
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-gray-100 bg-white">
 
@@ -85,9 +101,14 @@ export default function Sidebar() {
 
           <Link
             href="/hoy"
-            className="flex items-center gap-4 rounded-xl bg-indigo-600 px-4 py-4 text-white shadow-sm transition hover:bg-indigo-700"
+            className={`flex items-center gap-4 rounded-xl px-4 py-4 transition ${
+              isInicioActive
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
           >
             <DashboardIcon />
+
             <span className="text-lg font-medium">
               Inicio
             </span>
@@ -95,9 +116,14 @@ export default function Sidebar() {
 
           <Link
             href="/actividad"
-            className="flex items-center gap-4 rounded-xl px-4 py-4 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            className={`flex items-center gap-4 rounded-xl px-4 py-4 transition ${
+              isEventosActive
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
           >
             <CalendarIcon />
+
             <span className="text-lg font-medium">
               Eventos
             </span>
