@@ -91,7 +91,7 @@ export default function EventsListPage() {
     try {
       
       console.log("Cargando evento para editar:", eventId);
-
+      //LLEGADA DE OBJETO ACA DEJA DE SER null el eventToEdit por lo tanto si entra en el effect del UseState
       const response = await apiClient.get(`/events/${eventId}/`);
 
       console.log("Evento recibido para editar:", response.data);
@@ -153,87 +153,96 @@ export default function EventsListPage() {
 
   }, []);
 
-
-
-    // ============================================================
   // CREAR EVENTO EN EL BACKEND
-  // ============================================================
-  //
-  // Recibe la información que viene del modal y la envía
-  // al endpoint de Django:
 
   const handleEventSaved = async (newEvent: CreatedEvent) => {
 
-
     try {
 
-      // --------------------------------------------------------
-      // 1. Enviar el evento al backend
-      // --------------------------------------------------------
-      //
-      // apiClient ya tiene configurada la URL base y
-      // también agrega automáticamente el JWT.
-      //
-      const response = await apiClient.post('/events/', newEvent);
+      // EDICIÓN DE EVENTO
+      if (eventToEdit) {
 
-      // --------------------------------------------------------
-      // 2. Obtener el evento creado
-      // --------------------------------------------------------
-      //
-      // Django devuelve el evento con:
-      //
-      // - id real de la BD
-      // - total_tasks
-      // - completed_tasks
-      // - progress_percentage
-      // - tasks
-      //
-      const createdEvent = response.data;
+        console.log("SUBTAREAS QUE SE VAN A ENVIAR:", newEvent.tasks);
 
-      console.log('Evento creado correctamente:', createdEvent);
+        // Actualizamos únicamente el evento existente.
+        // PATCH modifica el registro que ya existe en el backend.
+        const response = await apiClient.patch(
+          `/events/${eventToEdit.id}/`,
+          {
+            title: newEvent.title,
+            activity_type: newEvent.activity_type,
+            description: newEvent.description,
+            event_date: newEvent.event_date,
 
-      // --------------------------------------------------------
-      // 3. Agregar el evento creado a la lista visual
-      // --------------------------------------------------------
-      //
-      // IMPORTANTE:
-      // Usamos el ID que viene de Django.
-      // Ya NO usamos Date.now().
-      //
-      setEvents((currentEvents) => [
-        ...currentEvents,
-        createdEvent,
-      ]);
+            tasks: newEvent.tasks,
+          }
+        );
 
-      // --------------------------------------------------------
-      // 4. Mostrar mensaje de éxito
-      // --------------------------------------------------------
+        console.log("Evento actualizado correctamente:", response.data);
 
-      setSuccessMessage("Evento guardado exitosamente.");
+        // Actualizamos la lista visual con la información modificada.
+        setEvents((currentEvents) =>
+          currentEvents.map((event) =>
+            event.id === eventToEdit.id
+              ? response.data
+              : event
+          )
+        );
 
-      // Ocultamos el mensaje después de 3 segundos.
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 3000);
+        // Limpiamos el evento que estaba siendo editado.
+        setEventToEdit(null);
 
-    } catch (error) {
+        // Mensaje de éxito.
+        setSuccessMessage("Evento actualizado exitosamente.");
 
-      // --------------------------------------------------------
-      // 5. Manejo de errores
-      // --------------------------------------------------------
-      //
-      // Si Django rechaza la petición, el evento NO se agrega
-      // visualmente como si se hubiera guardado.
-      //
-      console.error("Error al guardar el evento:", error);
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 3000);
 
-      setSuccessMessage("No fue posible guardar el evento.");
+        return;
+        
+      }
 
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 3000);
-    }
-  };
+    // ============================================================
+    // CREACIÓN DE EVENTO
+
+    // 1. Enviar el evento al backend
+    const response = await apiClient.post('/events/', newEvent);
+
+    // 2. Obtener el evento creado
+    const createdEvent = response.data;
+    console.log('Evento creado correctamente:', createdEvent);
+
+    // 3. Agregar el evento creado a la lista visual
+    setEvents((currentEvents) => [
+      ...currentEvents,
+      createdEvent,
+    ]);
+
+    // 4. Mostrar mensaje de éxito
+    setSuccessMessage("Evento guardado exitosamente.");
+
+    // Ocultamos el mensaje después de 3 segundos.
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 3000);
+
+  } catch (error) {
+
+    // 5. Manejo de errores
+    console.error("Error al guardar el evento:", error);
+
+    setSuccessMessage(
+      eventToEdit
+        ? "No fue posible actualizar el evento."
+        : "No fue posible guardar el evento."
+    );
+
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 3000);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -279,7 +288,14 @@ export default function EventsListPage() {
             {/* BOTÓN CREAR EVENTO */}
             <button
               type="button"
-              onClick={() => setIsCreateEventOpen(true)}
+              onClick={() => {
+                // Limpiamos cualquier evento que estuviera seleccionado
+                // anteriormente para edición.
+                setEventToEdit(null);
+
+                // Abrimos el modal en modo creación.
+                setIsCreateEventOpen(true);
+              }}
               className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 shadow-sm transition"
             >
               + Crear Nuevo Evento
