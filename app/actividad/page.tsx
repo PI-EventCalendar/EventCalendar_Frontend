@@ -21,6 +21,7 @@ interface Event {
   total_tasks: number;
   completed_tasks: number;
   tasks: {
+    id:number;
     title: string;
     scheduled_date: string;
     estimated_hours: string | number;
