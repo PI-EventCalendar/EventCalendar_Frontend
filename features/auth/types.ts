@@ -9,6 +9,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
+  daily_hour_limit?: string;
 }
 
 export interface LoginPayload {
@@ -20,7 +21,12 @@ export interface RegisterPayload {
   username: string;
   email: string;
   password: string;
-  password2: string;
-  first_name?: string;
-  last_name?: string;
+  password_confirm: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface RegisterResponse {
+  user: User;
+  tokens: AuthTokens;
 }

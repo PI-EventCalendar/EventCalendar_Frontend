@@ -8,8 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { User, LoginPayload } from "../types";
-import { loginUser, getCurrentUser } from "../services/authService";
+import type { User, LoginPayload, RegisterPayload } from "../types";
+import { loginUser, registerUser, getCurrentUser } from "../services/authService";
 
 // ─── Tipos del contexto ───────────────────────────────────────────────────────
 
@@ -18,6 +18,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (payload: LoginPayload) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
 }
 
@@ -35,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      setIsLoading(false);
+      queueMicrotask(() => setIsLoading(false));
       return;
     }
 
@@ -56,6 +57,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(me);
   }, []);
 
+  const register = useCallback(async (payload: RegisterPayload) => {
+    const response = await registerUser(payload);
+    localStorage.setItem("access_token", response.tokens.access);
+    localStorage.setItem("refresh_token", response.tokens.refresh);
+    setUser(response.user);
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -69,9 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user,
       isLoading,
       login,
+      register,
       logout,
     }),
-    [user, isLoading, login, logout],
+    [user, isLoading, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

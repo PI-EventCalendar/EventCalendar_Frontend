@@ -1,5 +1,5 @@
 import apiClient from "@/lib/axios";
-import type { AuthTokens, LoginPayload, RegisterPayload, User } from "../types";
+import type { AuthTokens, LoginPayload, RegisterPayload, RegisterResponse, User } from "../types";
 
 /**POST /api/v1/auth/login/ — obtiene access + refresh tokens */
 export async function loginUser(payload: LoginPayload): Promise<AuthTokens> {
@@ -8,8 +8,8 @@ export async function loginUser(payload: LoginPayload): Promise<AuthTokens> {
 }
 
 /** POST /auth/register/ — crea un nuevo usuario */
-export async function registerUser(payload: RegisterPayload): Promise<User> {
-  const { data } = await apiClient.post<User>("/auth/register/", payload);
+export async function registerUser(payload: RegisterPayload): Promise<RegisterResponse> {
+  const { data } = await apiClient.post<RegisterResponse>("/auth/register/", payload);
   return data;
 }
 
