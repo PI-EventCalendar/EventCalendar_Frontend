@@ -81,7 +81,14 @@ function TaskGroup({
                 <p className="text-sm text-gray-600">
                   Estado: {STATUS_LABELS[task.status]}
                 </p>
-                {task.notes && <details className="text-sm text-gray-500"><summary className="cursor-pointer font-medium">Ver nota</summary><p className="mt-1">{task.notes}</p></details>}
+                {task.notes && (
+                  <details className="text-sm text-gray-500">
+                    <summary className="cursor-pointer font-medium">
+                      Ver nota
+                    </summary>
+                    <p className="mt-1">{task.notes}</p>
+                  </details>
+                )}
 
                 {urgency && (
                   <span
@@ -197,55 +204,51 @@ function TodayContent() {
 
       <main className="ml-64 min-h-screen p-8">
         <div className="mx-auto max-w-4xl space-y-8">
-          <header className="flex items-start justify-between gap-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Hoy</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Hoy</h1>
 
-              <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500">
               Tus subtareas se organizan según su fecha programada.
             </p>
-                Tus subtareas se organizan según su fecha programada.
+          </div>
 
-            </div>
+          {/* Información sobre el ordenamiento */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowOrderingInfo((previous) => !previous)}
+              onBlur={() => setShowOrderingInfo(false)}
+              className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
+              aria-expanded={showOrderingInfo}
+              aria-describedby="ordering-tooltip"
+            >
+              <CircleHelp className="h-5 w-5" />
 
-            {/* Información sobre el ordenamiento */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowOrderingInfo((previous) => !previous)}
-                onBlur={() => setShowOrderingInfo(false)}
-                className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
-                aria-expanded={showOrderingInfo}
-                aria-describedby="ordering-tooltip"
+              <span>¿Cómo se ordena?</span>
+            </button>
+
+            {showOrderingInfo && (
+              <div
+                id="ordering-tooltip"
+                role="tooltip"
+                className="absolute right-0 top-9 z-50 w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-5 shadow-xl ring-1 ring-gray-200"
               >
-                <CircleHelp className="h-5 w-5" />
+                <h2 className="text-base font-bold text-gray-900">
+                  ¿Cómo se ordena?
+                </h2>
 
-                <span>¿Cómo se ordena?</span>
-              </button>
-
-              {showOrderingInfo && (
-                <div
-                  id="ordering-tooltip"
-                  role="tooltip"
-                  className="absolute right-0 top-9 z-50 w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-5 shadow-xl ring-1 ring-gray-200"
-                >
-                  <h2 className="text-base font-bold text-gray-900">
-                    ¿Cómo se ordena?
-                  </h2>
-
-                  <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Las tareas se agrupan por prioridad temporal (
-                    <span className="font-semibold text-gray-800">
-                      Vencidas, Para hoy y Próximas
-                    </span>
-                    ). Dentro de cada grupo, se ordenan cronológicamente por la
-                    fecha programada más cercana para facilitarte la
-                    planificación diaria.
-                  </p>
-                </div>
-              )}
-            </div>
-
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Las tareas se agrupan por prioridad temporal (
+                  <span className="font-semibold text-gray-800">
+                    Vencidas, Para hoy y Próximas
+                  </span>
+                  ). Dentro de cada grupo, se ordenan cronológicamente por la
+                  fecha programada más cercana para facilitarte la planificación
+                  diaria.
+                </p>
+              </div>
+            )}
+          </div>
 
           {successMessage && (
             <p
@@ -277,8 +280,7 @@ function TodayContent() {
           {!isLoading && !isError && tasks.length === 0 && (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
               <p className="text-gray-600">
-                Aún no hay subtareas. Crea primero un evento para
-                planificarlas.
+                Aún no hay subtareas. Crea primero un evento para planificarlas.
               </p>
 
               <Link
@@ -306,9 +308,7 @@ function TodayContent() {
                       }
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                      <option value="all">
-                        Todos los eventos
-                      </option>
+                      <option value="all">Todos los eventos</option>
 
                       {activities.map((activity) => (
                         <option key={activity.id} value={activity.id}>
