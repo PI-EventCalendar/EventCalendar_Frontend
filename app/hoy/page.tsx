@@ -213,7 +213,8 @@ function TodayContent() {
           </div>
 
           {/* Información sobre el ordenamiento */}
-          <div className="relative shrink-0">
+          {/* CAMBIO: Se agregó inline-block para acoplar el contenedor al tamaño del botón */}
+          <div className="relative inline-block shrink-0">
             <button
               type="button"
               onClick={() => setShowOrderingInfo((previous) => !previous)}
@@ -231,7 +232,8 @@ function TodayContent() {
               <div
                 id="ordering-tooltip"
                 role="tooltip"
-                className="absolute right-0 top-9 z-50 w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-5 shadow-xl ring-1 ring-gray-200"
+                /* CAMBIO: Se cambió right-0 por left-0 para que despliegue hacia la derecha */
+                className="absolute left-0 top-9 z-50 w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-5 shadow-xl ring-1 ring-gray-200"
               >
                 <h2 className="text-base font-bold text-gray-900">
                   ¿Cómo se ordena?
