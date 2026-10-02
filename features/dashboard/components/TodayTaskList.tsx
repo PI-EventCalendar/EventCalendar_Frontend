@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   pending: "Pendiente",
   in_progress: "En progreso",
   completed: "Completada",
+  postponed: "Pospuesta",
   cancelled: "Cancelada",
 };
 

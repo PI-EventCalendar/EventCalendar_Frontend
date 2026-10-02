@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   pending: "Pendiente",
   in_progress: "En progreso",
   completed: "Completada",
+  postponed: "Pospuesta",
   cancelled: "Cancelada",
 };
 
@@ -68,8 +69,7 @@ function TaskGroup({
                 <p className="font-semibold text-gray-900">{task.title}</p>
 
                 <p className="text-sm text-gray-500">
-                  Actividad: {task.event_title ?? "Sin actividad"}
-                  {task.event_course ? ` || Curso: ${task.event_course}` : ""}
+                  Evento: {task.event_title ?? "Sin evento"}
                 </p>
 
                 <p className="text-sm text-gray-500">
@@ -80,6 +80,7 @@ function TaskGroup({
                 <p className="text-sm text-gray-600">
                   Estado: {STATUS_LABELS[task.status]}
                 </p>
+                {task.notes && <details className="text-sm text-gray-500"><summary className="cursor-pointer font-medium">Ver nota</summary><p className="mt-1">{task.notes}</p></details>}
 
                 {urgency && (
                   <span
@@ -198,7 +199,7 @@ function TodayContent() {
           <header>
             <h1 className="text-3xl font-bold text-gray-900">Hoy</h1>
 
-            <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500">
               Tus subtareas se organizan según su fecha programada.
             </p>
           </header>
@@ -233,7 +234,7 @@ function TodayContent() {
           {!isLoading && !isError && tasks.length === 0 && (
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
               <p className="text-gray-600">
-                Aún no hay subtareas. Crea primero una actividad para
+                Aún no hay subtareas. Crea primero un evento para
                 planificarlas.
               </p>
 
@@ -241,7 +242,7 @@ function TodayContent() {
                 href="/actividad"
                 className="mt-4 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
               >
-                Crear actividad
+                Crear evento
               </Link>
             </div>
           )}
@@ -254,7 +255,7 @@ function TodayContent() {
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                   <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-gray-700">
-                    Actividad o curso
+                    Actividad o Evento
                     <select
                       value={activityFilter}
                       onChange={(event) =>
@@ -263,7 +264,7 @@ function TodayContent() {
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="all">
-                        Todas las actividades y cursos
+                        Todos los eventos
                       </option>
 
                       {activities.map((activity) => (

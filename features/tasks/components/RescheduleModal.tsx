@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRescheduleTask } from "../hooks/useTasks";
+import axios from "axios";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -63,9 +64,18 @@ export function RescheduleModal({ task, open, onOpenChange, onSuccess }: Resched
       onSuccess?.();
       reset();
       onOpenChange(false);
-    } catch {
+    } catch (error) {
       // La fecha no se reinicia para que la persona pueda reintentarla.
-      setRequestError("No se pudo reprogramar. Verifica la fecha e inténtalo de nuevo.");
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : null;
+      if (detail?.error === "DailyOverloadConflict") {
+        setRequestError(`No se pudo reprogramar. Has excedido el límite de ${detail.daily_hour_limit} horas diarias. Verifica la fecha e inténtalo nuevamente.`);
+      } else if (axios.isAxiosError(error) && !error.response) {
+        setRequestError("No se pudo conectar con el servidor. Revisa tu conexión e inténtalo nuevamente.");
+      } else if (error instanceof Error && error.message.toLowerCase().includes("fecha")) {
+        setRequestError("La fecha seleccionada no es válida.");
+      } else {
+        setRequestError("No se pudo reprogramar. Inténtalo nuevamente.");
+      }
     }
   };
 

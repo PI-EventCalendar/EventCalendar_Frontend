@@ -23,11 +23,12 @@ export interface CreatedEvent {
    * junto con el evento.
    */
   tasks: {
-    id: number;
+    id?: number;
     title: string;
     scheduled_date: string;
     estimated_hours: number;
     status: string;
+    notes?: string;
   }[];
 
   /**
@@ -49,6 +50,7 @@ interface EventToEdit {
     scheduled_date: string;
     estimated_hours: string | number;
     status: string;
+    notes?: string;
   }[];
 }
 
@@ -79,6 +81,8 @@ interface Subtask {
   date: string;
   hours: number;
   provider: string;
+  status?: string;
+  notes?: string;
 }
 
 /*
@@ -218,6 +222,8 @@ export default function CreateEventModal({
       hours: Number(task.estimated_hours),
 
       provider: "",
+      status: task.status,
+      notes: task.notes,
     }));
 
 
@@ -319,6 +325,7 @@ export default function CreateEventModal({
     taskDate?: string;
     taskHours?: string;
   }>({});
+  const [saveError, setSaveError] = useState("");
 
 
   /*
@@ -460,7 +467,8 @@ export default function CreateEventModal({
 
     // Creamos la nueva subtarea
     const newSubtask: Subtask = {
-      id: Date.now(),
+      // Los IDs negativos son solo locales; nunca se envían al backend.
+      id: -Date.now(),
       name: taskName.trim(),
       date: taskDate,
       hours: Number(taskHours),
@@ -559,6 +567,7 @@ export default function CreateEventModal({
     if (!isValid) {
       return;
     }
+    setSaveError("");
 
 
         /**
@@ -588,11 +597,12 @@ export default function CreateEventModal({
        * al formato que maneja el backend.
        */
       tasks: subtasks.map((task) => ({
-        id: task.id,
+        ...(task.id > 0 ? { id: task.id } : {}),
         title: task.name,
         scheduled_date: task.date,
         estimated_hours: task.hours,
-        status: "pending",
+        status: task.status ?? "pending",
+        notes: task.notes,
       })),
 
       // Cantidad de tareas creadas
@@ -625,7 +635,16 @@ export default function CreateEventModal({
       newEvent
     );
 
-    await onSave(newEvent);
+    try {
+      await onSave(newEvent);
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      const payload = typeof detail === "object" && detail !== null ? detail as Record<string, string> : null;
+      setSaveError(payload?.error === "DailyOverloadConflict"
+        ? `No se puede guardar el plan logístico. El ${payload.target_date} tienes ${payload.current_hours} h programadas y el límite es ${payload.daily_hour_limit} h.`
+        : "No se pudo guardar el evento. Revisa los datos e inténtalo nuevamente.");
+      return;
+    }
 
     /**
      * Solo cerramos el modal después de que
@@ -722,6 +741,7 @@ export default function CreateEventModal({
         ================================================================= */}
 
         <div className="max-h-[calc(96vh-150px)] overflow-y-auto bg-gray-50/50 p-5">
+          {saveError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">{saveError}</div>}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
 

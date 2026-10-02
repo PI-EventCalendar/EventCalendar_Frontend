@@ -25,7 +25,7 @@ import type { Task, CreateTaskPayload, TaskStatus, TaskPriority } from "../types
 const taskSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
   description: z.string().optional().default(""),
-  status: z.enum(["pending", "in_progress", "completed", "cancelled"]).default("pending"),
+  status: z.enum(["pending", "in_progress", "completed", "postponed", "cancelled"]).default("pending"),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   due_date: z.string().nullable().optional(),
   event: z.number().nullable().optional(),
@@ -169,6 +169,7 @@ export function TaskForm({
               <SelectItem value="pending">Pendiente</SelectItem>
               <SelectItem value="in_progress">En progreso</SelectItem>
               <SelectItem value="completed">Completada</SelectItem>
+              <SelectItem value="postponed">Pospuesta</SelectItem>
               <SelectItem value="cancelled">Cancelada</SelectItem>
             </SelectContent>
           </Select>

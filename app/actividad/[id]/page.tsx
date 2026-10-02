@@ -5,7 +5,10 @@ import { useParams } from "next/navigation";
 import { TaskStatus } from "@/types";
 import apiClient from "@/lib/axios";
 import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
+import { PostponeModal } from "@/features/tasks/components/PostponeModal";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
+import Link from "next/link";
+import Sidebar from "@/components/ui/Sidebar";
 
 // ============================================================
 // TIPOS
@@ -17,6 +20,7 @@ interface EventTask {
   estimated_hours: number | string;
   scheduled_date: string;
   status: TaskStatus;
+  notes?: string;
 }
 
 interface Event {
@@ -80,6 +84,8 @@ function EventDetailContent() {
 
   // Mensaje de éxito
   const [rescheduleSuccess, setRescheduleSuccess] = useState("");
+  const [statusError, setStatusError] = useState("");
+  const [postponeTaskId, setPostponeTaskId] = useState<number | null>(null);
 
   // ============================================================
   // OBTENER EVENTO
@@ -125,6 +131,7 @@ function EventDetailContent() {
   const handleTaskStatusChange = async (
     taskId: number,
     currentStatus: TaskStatus,
+    note = "",
   ) => {
     // Evitamos peticiones simultáneas
     if (updatingTaskId !== null) {
@@ -133,20 +140,19 @@ function EventDetailContent() {
 
     try {
       setUpdatingTaskId(taskId);
+      setStatusError("");
 
       // ========================================================
       // DETERMINAR NUEVO ESTADO
       // ========================================================
 
-      const newStatus = currentStatus === "completed" ? "pending" : "completed";
+      const newStatus = note ? "postponed" : currentStatus === "completed" ? "pending" : "completed";
 
       // ========================================================
       // PATCH /api/v1/tasks/{id}/
       // ========================================================
 
-      await apiClient.patch(`/tasks/${taskId}/`, {
-        status: newStatus,
-      });
+      await apiClient.patch(`/tasks/${taskId}/`, { status: newStatus, ...(note ? { notes: note } : {}) });
 
       // ========================================================
       // ACTUALIZAR ESTADO LOCAL
@@ -196,8 +202,7 @@ function EventDetailContent() {
       });
     } catch (error) {
       console.error("Error al actualizar la tarea:", error);
-
-      alert("No fue posible actualizar el estado de la tarea.");
+      setStatusError("No fue posible actualizar la subtarea. Verifica tu conexión e inténtalo nuevamente.");
     } finally {
       setUpdatingTaskId(null);
     }
@@ -249,29 +254,26 @@ function EventDetailContent() {
   // ============================================================
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-8">
+    <div className="min-h-screen bg-[#f8f9ff] text-slate-900">
+      <Sidebar />
+      <main className="min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-10">
+      <div className="mx-auto max-w-6xl space-y-6">
+      <nav className="text-xs font-medium text-slate-500" aria-label="Migas de pan">
+        <Link href="/actividad" className="hover:text-indigo-600">Eventos</Link><span className="mx-2">›</span><span>{event.title}</span><span className="mx-2">›</span><span className="text-indigo-600">Plan logístico</span>
+      </nav>
       {/* ======================================================
           HEADER DEL EVENTO
           ====================================================== */}
 
-      <div className="flex flex-col gap-4 border-b pb-6 md:flex-row md:items-center md:justify-between">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-            Plan Logístico
-          </span>
-
-          <h1 className="text-3xl font-bold text-gray-900">{event.title}</h1>
-
-          <p className="mt-1 text-sm text-gray-500">{event.description}</p>
+      <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div><span className="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">Plan logístico</span><h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{event.title}</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">{event.description || "Organiza y da seguimiento a las subtareas del evento."}</p></div>
+          <Link href="/actividad" className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">+ Añadir gestión logística</Link>
         </div>
-
-        <button
-          type="button"
-          className="self-start rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 md:self-auto"
-        >
-          + Añadir Gestión Logística
-        </button>
-      </div>
+        <div className="mt-6 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-3">
+          <div><p className="text-xs uppercase tracking-wide text-slate-400">Fecha del evento</p><p className="mt-1 font-semibold">{event.event_date}</p></div><div><p className="text-xs uppercase tracking-wide text-slate-400">Subtareas</p><p className="mt-1 font-semibold">{totalTasks} - registrada(s)</p></div><div><p className="text-xs uppercase tracking-wide text-slate-400">Horas estimadas</p><p className="mt-1 font-semibold">{event.tasks.reduce((sum, task) => sum + Number(task.estimated_hours), 0).toFixed(2)} h</p></div>
+        </div>
+      </section>
 
       {/* ======================================================
           MENSAJE DE ÉXITO
@@ -291,18 +293,10 @@ function EventDetailContent() {
           BARRA DE PROGRESO
           ====================================================== */}
 
-      <div className="space-y-3 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between text-sm font-semibold">
-          <span className="text-gray-700">
-            Progreso de Preparación del Evento
-          </span>
-
-          <span className="font-bold text-indigo-600">
-            {progressPercentage}% Completado
-          </span>
-        </div>
-
-        <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
+      <section className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="flex items-end justify-between"><div><p className="text-sm font-medium text-slate-500">Progreso global</p><p className="mt-2 text-4xl font-bold text-slate-900">{progressPercentage}<span className="text-xl">%</span></p></div><span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">{completedTasks} de {totalTasks} completadas</span></div>
+        <div className="mt-5 h-3 w-full overflow-hidden rounded-full bg-indigo-100">
           <div
             className="h-full rounded-full bg-indigo-600 transition-all duration-500"
             style={{
@@ -311,105 +305,40 @@ function EventDetailContent() {
           />
         </div>
 
-        <p className="text-xs text-gray-500">
-          {completedTasks} de {totalTasks} gestiones logísticas ejecutadas.
-        </p>
+        <p className="mt-3 text-xs text-slate-500">El porcentaje se calcula con las subtareas completadas del evento.</p>
       </div>
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"><p className="text-sm font-medium text-slate-500">Estado del plan</p><p className="mt-3 text-2xl font-bold text-slate-900">{totalTasks === 0 ? "Sin subtareas" : progressPercentage === 100 ? "Completado" : "En preparación"}</p><p className="mt-2 text-sm text-slate-500">{totalTasks === 0 ? "Añade subtareas para comenzar a medir el avance." : `${totalTasks - completedTasks} subtarea${totalTasks - completedTasks === 1 ? "" : "s"} pendiente${totalTasks - completedTasks === 1 ? "" : "s"}.`}</p></div>
+      </section>
 
       {/* ======================================================
           LISTADO DE TAREAS
           ====================================================== */}
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-900">
-          Gestiones Logísticas
-        </h2>
+      <section className="space-y-4"><div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-bold text-slate-900">Gestiones logísticas</h2><p className="text-sm text-slate-500">Selecciona una tarea para actualizar su avance o planificación.</p></div><span className="text-xs font-medium text-slate-400">{totalTasks} subtarea{totalTasks === 1 ? "" : "s"}</span></div>
 
         {event.tasks.length === 0 ? (
           /* ====================================================
              EMPTY STATE
              ==================================================== */
 
-          <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
-            <p className="text-sm text-gray-500">
-              No hay gestiones planificadas para este evento aún.
-            </p>
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><p className="text-sm text-slate-500">Aún no tienes tareas logísticas en este evento. Crea un plan inicial para medir tu avance</p><Link href="/actividad" className="mt-5 inline-flex rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white">Crear plan inicial</Link>
           </div>
         ) : (
           <div className="space-y-3">
-            {event.tasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-gray-300"
-              >
-                <div className="flex items-center space-x-3">
-                  {/* ==================================================
-                      CHECKBOX
-                      ================================================== */}
-
-                  <input
-                    type="checkbox"
-                    checked={task.status === "completed"}
-                    onChange={() =>
-                      handleTaskStatusChange(task.id, task.status)
-                    }
-                    disabled={updatingTaskId === task.id}
-                    className="h-5 w-5 rounded border-gray-300 text-indigo-600"
-                  />
-
-                  {/* ==================================================
-                      INFORMACIÓN DE LA TAREA
-                      ================================================== */}
-
-                  <div>
-                    <h3
-                      className={`text-sm font-semibold ${
-                        task.status === "completed"
-                          ? "text-gray-400 line-through"
-                          : "text-gray-900"
-                      }`}
-                    >
-                      {task.title}
-                    </h3>
-
-                    <span className="text-xs text-gray-500">
-                      Fecha: {task.scheduled_date}
-                      {" • "}
-                      Est: {task.estimated_hours}h
-                    </span>
-                  </div>
+            {event.tasks.map((task) => <article key={task.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-indigo-200 hover:shadow-md sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <input type="checkbox" checked={task.status === "completed"} onChange={() => handleTaskStatusChange(task.id, task.status)} disabled={updatingTaskId === task.id} className="mt-1 h-5 w-5 rounded border-gray-300 text-indigo-600" />
+                  <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className={`text-sm font-semibold ${task.status === "completed" ? "text-gray-400 line-through" : "text-gray-900"}`}>{task.title}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${task.status === "completed" ? "bg-emerald-100 text-emerald-700" : task.status === "postponed" ? "bg-amber-100 text-amber-700" : task.status === "in_progress" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-600"}`}>{task.status === "completed" ? "Completada" : task.status === "postponed" ? "Pospuesta" : task.status === "in_progress" ? "En progreso" : "Pendiente"}</span></div><p className="mt-2 text-sm text-slate-500">Fecha programada: {task.scheduled_date} <span className="mx-1">•</span> Horas estimadas: {task.estimated_hours} h</p>{task.notes && <details className="mt-2 text-xs text-slate-500"><summary className="cursor-pointer font-medium">Ver nota de posposición</summary><p className="mt-1">{task.notes}</p></details>}</div>
                 </div>
-
-                {/* ====================================================
-                    ESTADO
-                    ==================================================== */}
-
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    task.status === "completed"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-yellow-100 text-yellow-800"
-                  }`}
-                >
-                  {task.status === "completed" ? "Completado" : "Pendiente"}
-                </span>
-
-                {/* ====================================================
-                    REPROGRAMAR
-                    ==================================================== */}
-
-                <button
-                  type="button"
-                  onClick={() => setTaskToReschedule(task)}
-                  className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  Reprogramar
-                </button>
+                <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 lg:border-0 lg:pt-0"><button type="button" onClick={() => setTaskToReschedule(task)} className="rounded-xl bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">Reprogramar</button>{task.status !== "completed" && <button type="button" onClick={() => setPostponeTaskId(task.id)} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500">Posponer</button>}</div>
               </div>
-            ))}
+            </article>)}
           </div>
         )}
-      </div>
+      </section>
+
+      {statusError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{statusError}</p>}
 
       {/* ======================================================
           MODAL DE REPROGRAMACIÓN
@@ -426,6 +355,9 @@ function EventDetailContent() {
           loadEvent();
         }}
       />
+      <PostponeModal task={event.tasks.find((task) => task.id === postponeTaskId) ?? null} open={postponeTaskId !== null} onOpenChange={(open) => !open && setPostponeTaskId(null)} onSuccess={loadEvent} />
+      </div>
+      </main>
     </div>
   );
 }

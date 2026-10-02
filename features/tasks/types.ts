@@ -1,4 +1,4 @@
-export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
+export type TaskStatus = "pending" | "in_progress" | "completed" | "postponed" | "cancelled";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface TaskCategory {
@@ -41,6 +41,9 @@ export interface CreateTaskPayload {
   due_date?: string | null;
   event?: number | null;
   category?: number | null;
+  notes?: string;
+  scheduled_date?: string;
+  estimated_hours?: string | number;
 }
 
 export type UpdateTaskPayload = Partial<CreateTaskPayload>;
