@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import apiClient from "@/lib/axios";
+import axios from "axios";
 
 import Sidebar from "@/components/ui/Sidebar";
 import CreateEventModal, {
@@ -235,15 +236,15 @@ function EventsListContent() {
 
       console.error("Error al guardar el evento:", error);
 
-      setSuccessMessage(
-        eventToEdit
-          ? "No fue posible actualizar el evento."
-          : "No fue posible guardar el evento.",
-      );
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : null;
+      setSuccessMessage(detail?.error === "DailyOverloadConflict"
+        ? `No se puede guardar el plan logístico. El ${detail.target_date} tienes ${detail.current_hours} h programadas y el límite es ${detail.daily_hour_limit} h.`
+        : eventToEdit ? "No fue posible actualizar el evento." : "No fue posible guardar el evento.");
 
       setTimeout(() => {
         setSuccessMessage("");
       }, 3000);
+      throw error;
     }
   };
 

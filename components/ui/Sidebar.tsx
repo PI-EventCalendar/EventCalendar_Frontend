@@ -130,7 +130,7 @@ export default function Sidebar() {
           </Link>
 
           <Link
-            href="#"
+            href="/configuracion"
             className="flex items-center gap-4 rounded-xl px-4 py-4 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
           >
             <SettingsIcon />
