@@ -203,7 +203,7 @@ function TodayContent() {
       <Sidebar />
 
       <main className="ml-64 min-h-screen p-8">
-        <div className="mx-auto max-w-4xl space-y-8">
+        <div className="w-full space-y-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Hoy</h1>
 

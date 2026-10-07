@@ -236,10 +236,16 @@ function EventsListContent() {
 
       console.error("Error al guardar el evento:", error);
 
-      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : null;
-      setSuccessMessage(detail?.error === "DailyOverloadConflict"
-        ? `No se puede guardar el plan logístico. El ${detail.target_date} tienes ${detail.current_hours} h programadas y el límite es ${detail.daily_hour_limit} h.`
-        : eventToEdit ? "No fue posible actualizar el evento." : "No fue posible guardar el evento.");
+      const detail = axios.isAxiosError(error)
+        ? error.response?.data?.detail
+        : null;
+      setSuccessMessage(
+        detail?.error === "DailyOverloadConflict"
+          ? `No se puede guardar el plan logístico. El ${detail.target_date} tienes ${detail.current_hours} h programadas y el límite es ${detail.daily_hour_limit} h.`
+          : eventToEdit
+            ? "No fue posible actualizar el evento."
+            : "No fue posible guardar el evento.",
+      );
 
       setTimeout(() => {
         setSuccessMessage("");
@@ -258,7 +264,7 @@ function EventsListContent() {
       <Sidebar />
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="ml-64 min-h-screen">
+      <main className="ml-64 min-h-screen p-8">
         {/* TOAST DE ÉXITO */}
         {successMessage && (
           <div className="fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl border border-green-200 bg-white px-5 py-4 shadow-lg">
@@ -278,7 +284,7 @@ function EventsListContent() {
           </div>
         )}
 
-        <div className="mx-auto max-w-6xl space-y-6 p-8">
+        <div className="w-full space-y-6">
           {/* HEADER */}
           <div className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
