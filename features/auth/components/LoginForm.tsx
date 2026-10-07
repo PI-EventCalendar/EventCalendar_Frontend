@@ -9,6 +9,7 @@ import { Eye, EyeOff, Rocket, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import { RegisterForm } from "./RegisterForm";
+import TestimonialCarousel from "@/components/ui/TestimonialCarousel";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,7 @@ export function LoginForm() {
                   <button
                     onClick={handleDemoLogin}
                     type="button"
-                    className="w-full h-12 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 transition-colors duration-150 flex items-center justify-center gap-2 text-[14px] font-semibold text-white shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    className="w-full h-12 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 cursor-pointer transition-colors duration-150 flex items-center justify-center gap-2 text-[14px] font-semibold text-white shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
                     <span className="w-5 h-5" />
                     <span>Ingresar como Usuario Demo</span>
@@ -241,7 +242,7 @@ export function LoginForm() {
                           onClick={() =>
                             setShowPassword((previous) => !previous)
                           }
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none"
                           aria-label={
                             showPassword
                               ? "Ocultar contraseña"
@@ -267,7 +268,7 @@ export function LoginForm() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full h-11 px-4 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-[#131b2e] text-[14px] font-semibold flex items-center justify-center gap-1 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full h-11 px-4 rounded-lg bg-gray-100 hover:bg-gray-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-[#131b2e] text-[14px] font-semibold flex items-center justify-center gap-1 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <span>
                         {isSubmitting
@@ -281,13 +282,13 @@ export function LoginForm() {
                   <div className="mt-6 text-center">
                     <p className="text-sm text-gray-500">
                       ¿No tienes cuenta?{" "}
-                      <a
+                      <button
                         type="button"
                         onClick={() => setShowRegister(true)}
-                        className="text-indigo-600 hover:underline font-medium"
+                        className="text-indigo-600 hover:underline hover:text-indigo-700 cursor-pointer font-medium"
                       >
                         Regístrate
-                      </a>
+                      </button>
                     </p>
                   </div>
 
@@ -350,23 +351,46 @@ export function LoginForm() {
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Testimonio */}
-                <div className="relative z-10 mt-8 bg-white/80 backdrop-blur-md rounded-xl p-4 shadow-sm">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-full bg-indigo-100 flex-shrink-0 border-2 border-indigo-200 flex items-center justify-center text-indigo-600 font-bold text-xl">
-                      EM
+                  {/*  */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Card 1 */}
+                    <div className="flex items-center gap-3 rounded-xl bg-white/90 p-3 shadow-sm backdrop-blur-md">
+                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+                        <span className="material-symbols-outlined">
+                          event_available
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-2xl font-semibold leading-tight text-slate-900">
+                          +500 eventos
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          Organizados sin retrasos
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <blockquote className="text-[14px] italic text-gray-700">
-                        EventFlow cambió por completo cómo organizo mis eventos.
-                        Ahora nunca me sobrecargo de horas.
-                      </blockquote>
+                    {/* Card 2 */}
+                    <div className="flex items-center gap-3 rounded-xl bg-white/90 p-3 shadow-sm backdrop-blur-md">
+                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-emerald-300 text-emerald-900">
+                        <span className="material-symbols-outlined">
+                          psychology_alt
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-2xl font-semibold leading-tight text-slate-900">
+                          Algoritmo Activo
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          Prevención de burn-out
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+                {/* Carrusel vertical de testimonios */}
+                <TestimonialCarousel />
               </div>
 
               {showRegister && (

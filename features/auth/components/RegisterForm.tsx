@@ -5,7 +5,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { X, AtSign, Mail, LockKeyhole, ArrowRight } from "lucide-react";
+import {
+  X,
+  AtSign,
+  Mail,
+  LockKeyhole,
+  ArrowRight,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import axios from "axios";
 import { registerUser } from "../services/authService";
 
@@ -138,8 +146,8 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
           {/* ============================
               HEADER
           ============================ */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-2">
+          <div className="relative">
+            <div className="flex flex-col items-center text-center gap-2">
               {/* Badge */}
               <div className="inline-flex w-fit items-center gap-1.5 px-3 py-1 rounded-full bg-[#E2DFFF]">
                 <span className="text-[12px]">✨</span>
@@ -166,7 +174,7 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
               type="button"
               onClick={onClose}
               aria-label="Cerrar registro"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F2F3FF] text-[#505F76] hover:bg-[#E8E9FA] transition-colors"
+              className="absolute top-0 right-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F2F3FF] text-[#505F76] hover: cursor-pointer transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -353,9 +361,13 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
                   <button
                     type="button"
                     onClick={() => setShowPassword((previous) => !previous)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#596982] text-sm"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#596982] cursor-pointer text-sm"
                   >
-                    {showPassword ? "Ocultar" : "Ver"}
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
 
@@ -396,9 +408,13 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
                     onClick={() =>
                       setShowpassword_confirm((previous) => !previous)
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#596982] text-sm"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#596982] cursor-pointer text-sm"
                   >
-                    {showpassword_confirm ? "Ocultar" : "Ver"}
+                    {showpassword_confirm ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
 
@@ -429,7 +445,7 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-12 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[14px] font-semibold flex items-center justify-center gap-2 shadow-md transition-colors"
+                className="w-full h-12 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[14px] font-semibold flex items-center justify-center gap-2 shadow-md cursor-pointer transition-colors"
               >
                 <span>
                   {isSubmitting
@@ -444,7 +460,7 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="h-7 px-4 text-[14px] leading-5 text-[#505F76] hover:text-[#131B2E] transition-colors"
+                className="h-7 px-4 text-[14px] leading-5 text-[#505F76] hover:text-[#131B2E] cursor-pointer transition-colors"
               >
                 Cancelar
               </button>
@@ -461,7 +477,7 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="font-semibold text-[#3525CD] underline hover:text-[#2C20A8]"
+                className="text-indigo-600 hover:underline hover:text-indigo-700 cursor-pointer font-medium"
               >
                 Iniciar sesión
               </button>
