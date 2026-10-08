@@ -130,7 +130,7 @@ export function LoginForm() {
 
                     <div className="flex flex-col">
                       <span className="text-[18px] font-semibold leading-tight tracking-tight">
-                        EventFlow
+                        EventCalendar
                       </span>
 
                       <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">
@@ -182,7 +182,8 @@ export function LoginForm() {
                   */}
 
                   <p className="mb-6 rounded-lg bg-indigo-50 px-3 py-2 text-center text-xs font-medium text-indigo-700">
-                    💡 Tip: Mantén tus gestiones al día y controla tu capacidad diaria para evitar sobrecargas.
+                    💡 Tip: Mantén tus gestiones al día y controla tu capacidad
+                    diaria para evitar sobrecargas.
                   </p>
 
                   {/* Formulario */}

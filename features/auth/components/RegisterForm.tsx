@@ -310,7 +310,7 @@ export function RegisterForm({ onClose }: RegisterFormProps) {
                   <input
                     id="reg-email"
                     type="email"
-                    placeholder="correo@eventflow.pro"
+                    placeholder="correo@eventcalendar.pro"
                     autoComplete="email"
                     className={`w-full h-11 pl-10 pr-3 rounded-lg bg-[#EFF3FF] border text-[14px] text-[#131B2E] focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                       errors.email || serverFieldErrors.email
