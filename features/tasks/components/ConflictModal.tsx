@@ -1,13 +1,16 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { ConflictData, ResolutionAction } from '@/types';
+import React, { useState } from "react";
+import { ConflictData, ResolutionAction } from "@/types";
 
 interface ConflictModalProps {
   isOpen: boolean;
   conflictData: ConflictData | null;
   onClose: () => void;
-  onResolve: (action: ResolutionAction, payload?: { newDate?: string; newHours?: number }) => void;
+  onResolve: (
+    action: ResolutionAction,
+    payload?: { newDate?: string; newHours?: number },
+  ) => void;
 }
 
 export const ConflictModal: React.FC<ConflictModalProps> = ({
@@ -16,8 +19,9 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   onClose,
   onResolve,
 }) => {
-  const [selectedOption, setSelectedOption] = useState<ResolutionAction>('MOVE_DATE');
-  const [newDate, setNewDate] = useState('');
+  const [selectedOption, setSelectedOption] =
+    useState<ResolutionAction>("MOVE_DATE");
+  const [newDate, setNewDate] = useState("");
   const [newHours, setNewHours] = useState(2.0);
 
   if (!isOpen || !conflictData) return null;
@@ -32,42 +36,52 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl border border-gray-100">
-        
         {/* Header */}
         <div className="flex items-center space-x-3 mb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 font-bold">
             ⚠️
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Conflicto de Sobrecarga Diaria</h2>
-            <p className="text-sm text-gray-500">Límite de capacidad excedido para hoy</p>
+            <h2 className="text-xl font-bold text-gray-900">
+              Conflicto de Sobrecarga Diaria
+            </h2>
+            <p className="text-sm text-gray-500">
+              Límite de capacidad excedido para hoy
+            </p>
           </div>
         </div>
 
         {/* Info Box */}
         <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
           <p className="font-medium">
-            Al mover &quot;{conflictData.taskToReschedule?.title || 'Gestión'}&quot; para hoy, superas tu límite de {conflictData.limitHours}h diarias.
+            Al mover &quot;{conflictData.taskToReschedule?.title || "Gestión"}
+            &quot; para hoy, superas tu límite de {conflictData.limitHours}h
+            diarias.
           </p>
-          <p className="mt-1 font-semibold">Total proyectado: {totalProjected} horas.</p>
+          <p className="mt-1 font-semibold">
+            Total proyectado: {totalProjected} horas.
+          </p>
         </div>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          
           {/* Opción 1: Mover fecha */}
-          <label className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === 'MOVE_DATE' ? 'border-indigo-600 bg-indigo-50/50' : 'border-gray-200'}`}>
+          <label
+            className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === "MOVE_DATE" ? "border-indigo-600 bg-indigo-50/50" : "border-gray-200"}`}
+          >
             <div className="flex items-center space-x-3">
               <input
                 type="radio"
                 name="resolution"
-                checked={selectedOption === 'MOVE_DATE'}
-                onChange={() => setSelectedOption('MOVE_DATE')}
+                checked={selectedOption === "MOVE_DATE"}
+                onChange={() => setSelectedOption("MOVE_DATE")}
                 className="h-4 w-4 text-indigo-600"
               />
-              <span className="font-semibold text-gray-900">Mover a otra fecha disponible</span>
+              <span className="font-semibold text-gray-900">
+                Mover a otra fecha disponible
+              </span>
             </div>
-            {selectedOption === 'MOVE_DATE' && (
+            {selectedOption === "MOVE_DATE" && (
               <div className="mt-3 pl-7">
                 <input
                   type="date"
@@ -81,18 +95,22 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           </label>
 
           {/* Opción 2: Reducir horas */}
-          <label className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === 'REDUCE_HOURS' ? 'border-indigo-600 bg-indigo-50/50' : 'border-gray-200'}`}>
+          <label
+            className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === "REDUCE_HOURS" ? "border-indigo-600 bg-indigo-50/50" : "border-gray-200"}`}
+          >
             <div className="flex items-center space-x-3">
               <input
                 type="radio"
                 name="resolution"
-                checked={selectedOption === 'REDUCE_HOURS'}
-                onChange={() => setSelectedOption('REDUCE_HOURS')}
+                checked={selectedOption === "REDUCE_HOURS"}
+                onChange={() => setSelectedOption("REDUCE_HOURS")}
                 className="h-4 w-4 text-indigo-600"
               />
-              <span className="font-semibold text-gray-900">Reducir horas estimadas</span>
+              <span className="font-semibold text-gray-900">
+                Reducir horas estimadas
+              </span>
             </div>
-            {selectedOption === 'REDUCE_HOURS' && (
+            {selectedOption === "REDUCE_HOURS" && (
               <div className="mt-3 pl-7">
                 <input
                   type="number"
@@ -107,16 +125,20 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           </label>
 
           {/* Opción 3: Forzar */}
-          <label className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === 'FORCE' ? 'border-red-600 bg-red-50/50' : 'border-gray-200'}`}>
+          <label
+            className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === "FORCE" ? "border-red-600 bg-red-50/50" : "border-gray-200"}`}
+          >
             <div className="flex items-center space-x-3">
               <input
                 type="radio"
                 name="resolution"
-                checked={selectedOption === 'FORCE'}
-                onChange={() => setSelectedOption('FORCE')}
+                checked={selectedOption === "FORCE"}
+                onChange={() => setSelectedOption("FORCE")}
                 className="h-4 w-4 text-red-600"
               />
-              <span className="font-semibold text-gray-900">Forzar sobrecarga diaria</span>
+              <span className="font-semibold text-gray-900">
+                Forzar sobrecarga diaria
+              </span>
             </div>
           </label>
 
@@ -137,7 +159,6 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

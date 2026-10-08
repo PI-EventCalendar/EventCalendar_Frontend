@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
 function DashboardIcon() {
   return (
     <svg
@@ -130,7 +131,7 @@ export default function Sidebar() {
           >
             <DashboardIcon />
 
-            <span className="text-lg font-medium">Inicio</span>
+            <span className="text-lg font-medium">Hoy</span>
           </Link>
 
           <Link
@@ -150,7 +151,7 @@ export default function Sidebar() {
             href="/configuracion"
             className="flex items-center gap-4 rounded-xl px-4 py-4 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
           >
-            <SettingsIcon />
+            <Settings className="h-6 w-6" />
             <span className="text-lg font-medium">Configuración</span>
           </Link>
         </nav>

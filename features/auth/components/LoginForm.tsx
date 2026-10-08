@@ -130,7 +130,7 @@ export function LoginForm() {
 
                     <div className="flex flex-col">
                       <span className="text-[18px] font-semibold leading-tight tracking-tight">
-                        EventFlow
+                        EventCalendar
                       </span>
 
                       <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">
@@ -158,7 +158,7 @@ export function LoginForm() {
                     </div>
                   )}
 
-                  {/* Botón demo */}
+                  {/* Acceso demo temporalmente oculto; se conserva para reactivarlo después.
                   <button
                     onClick={handleDemoLogin}
                     type="button"
@@ -167,8 +167,9 @@ export function LoginForm() {
                     <span className="w-5 h-5" />
                     <span>Ingresar como Usuario Demo</span>
                   </button>
+                  */}
 
-                  {/* Separador */}
+                  {/* Separador temporalmente oculto; se conserva para reactivarlo después.
                   <div className="relative my-6 flex items-center justify-center">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full bg-gray-200 h-[1px]" />
@@ -178,6 +179,12 @@ export function LoginForm() {
                       o con tu usuario
                     </span>
                   </div>
+                  */}
+
+                  <p className="mb-6 rounded-lg bg-indigo-50 px-3 py-2 text-center text-xs font-medium text-indigo-700">
+                    💡 Tip: Mantén tus gestiones al día y controla tu capacidad
+                    diaria para evitar sobrecargas.
+                  </p>
 
                   {/* Formulario */}
                   <form

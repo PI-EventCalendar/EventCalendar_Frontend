@@ -5,7 +5,7 @@ import apiClient from "@/lib/axios";
 import Sidebar from "@/components/ui/Sidebar";
 
 export default function SettingsPage() {
-  const [value, setValue] = useState("6");
+  const [value, setValue] = useState("6.00");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
