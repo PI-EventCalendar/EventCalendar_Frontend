@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import apiClient from "@/lib/axios";
 
 /*
  * ============================================================================
@@ -17,6 +18,7 @@ export interface CreatedEvent {
   activity_type: string;
   description: string;
   event_date: string;
+  location: string;
 
   /**
    * Lista de subtareas que se crearán
@@ -43,6 +45,7 @@ interface EventToEdit {
   title: string;
   activity_type: string;
   description: string;
+  location?: string;
   event_date: string;
   tasks: {
     id: number;
@@ -120,6 +123,21 @@ export default function CreateEventModal({
 
   // Lugar del evento
   const [location, setLocation] = useState("");
+  const [dailyLimit, setDailyLimit] = useState(6);
+  const [taskName, setTaskName] = useState("");
+  const [taskDate, setTaskDate] = useState("");
+  const [taskHours, setTaskHours] = useState("");
+  const [taskProvider, setTaskProvider] = useState("");
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [errors, setErrors] = useState<{ eventName?: string; eventType?: string; eventDate?: string }>({});
+  const [taskErrors, setTaskErrors] = useState<{ taskName?: string; taskDate?: string; taskHours?: string }>({});
+  const [saveError, setSaveError] = useState("");
+  const [globalDailyLoads, setGlobalDailyLoads] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void apiClient.get("/auth/profile/").then(({ data }) => setDailyLimit(Number(data.daily_hour_limit ?? 6))).catch(() => setDailyLimit(6));
+  }, [isOpen]);
 
 
   useEffect(() => {
@@ -201,8 +219,7 @@ export default function CreateEventModal({
     );
 
 
-    // El backend todavía no maneja location.
-    setLocation("");
+    setLocation(eventToEdit.location ?? "");
 
 
     // ============================================================
@@ -262,16 +279,12 @@ export default function CreateEventModal({
    */
 
   // Nombre de la nueva subtarea
-  const [taskName, setTaskName] = useState("");
 
   // Fecha límite de la subtarea
-  const [taskDate, setTaskDate] = useState("");
 
   // Horas estimadas de la subtarea
-  const [taskHours, setTaskHours] = useState("");
 
   // Proveedor o responsable
-  const [taskProvider, setTaskProvider] = useState("");
 
 
   /*
@@ -284,7 +297,6 @@ export default function CreateEventModal({
    * Aquí almacenamos todas las subtareas que el usuario
    * vaya agregando al plan logístico.
    */
-  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
 
 
   /*
@@ -303,11 +315,6 @@ export default function CreateEventModal({
    *   eventDate: "La fecha es obligatoria."
    * }
    */
-  const [errors, setErrors] = useState<{
-    eventName?: string;
-    eventType?: string;
-    eventDate?: string;
-  }>({});
 
 
   /*
@@ -320,12 +327,18 @@ export default function CreateEventModal({
    * Estos errores corresponden únicamente al formulario
    * de "Agregar Nueva Subtarea".
    */
-  const [taskErrors, setTaskErrors] = useState<{
-    taskName?: string;
-    taskDate?: string;
-    taskHours?: string;
-  }>({});
-  const [saveError, setSaveError] = useState("");
+  const planningDates = Array.from(new Set([
+    ...subtasks.map((task) => task.date),
+    ...(eventToEdit?.tasks ?? []).map((task) => task.scheduled_date),
+  ].filter(Boolean)));
+  const planningDatesKey = planningDates.join("|");
+  useEffect(() => {
+    if (!isOpen || planningDates.length === 0) return;
+    void Promise.all(planningDates.map(async (date) => {
+      const { data } = await apiClient.get("/dashboard/daily-load/", { params: { date } });
+      return [date, Number(data.total_hours_scheduled ?? 0)] as const;
+    })).then((entries) => setGlobalDailyLoads(Object.fromEntries(entries))).catch(() => setGlobalDailyLoads({}));
+  }, [isOpen, planningDatesKey]);
 
 
   /*
@@ -524,6 +537,25 @@ export default function CreateEventModal({
     (total, task) => total + task.hours,
     0
   );
+  const dailyTotals = subtasks.reduce<Record<string, number>>((totals, task) => {
+    if (task.status && !["pending", "in_progress"].includes(task.status)) return totals;
+    totals[task.date] = (totals[task.date] ?? 0) + task.hours;
+    return totals;
+  }, {});
+  const originalTotals = (eventToEdit?.tasks ?? []).reduce<Record<string, number>>((totals, task) => {
+    if (["pending", "in_progress"].includes(task.status)) totals[task.scheduled_date] = (totals[task.scheduled_date] ?? 0) + Number(task.estimated_hours);
+    return totals;
+  }, {});
+  const globalProposedTotals = Array.from(new Set([
+    ...Object.keys(globalDailyLoads),
+    ...Object.keys(dailyTotals),
+    ...Object.keys(originalTotals),
+  ])).map((date) => [date, (globalDailyLoads[date] ?? 0) - (originalTotals[date] ?? 0) + (dailyTotals[date] ?? 0)] as const);
+  const busiestDay = globalProposedTotals.sort((a, b) => b[1] - a[1])[0];
+  const busiestHours = busiestDay?.[1] ?? 0;
+  const capacityRatio = dailyLimit > 0 ? busiestHours / dailyLimit : 0;
+  const riskLabel = capacityRatio >= 1 ? "Alto" : capacityRatio > 0.5 ? "Moderado" : "Nulo";
+  const riskClass = capacityRatio >= 1 ? "text-red-700" : capacityRatio > 0.5 ? "text-amber-700" : "text-green-700";
 
 
   /*
@@ -590,6 +622,7 @@ export default function CreateEventModal({
       description: client.trim()
         ? `Cliente: ${client.trim()}`
         : "Evento pendiente de planificación logística.",
+      location: location.trim(),
       event_date: eventDate.split("T")[0],
 
       /**
@@ -953,7 +986,7 @@ export default function CreateEventModal({
                    <div>
 
                     <label className="mb-1 block text-xs font-semibold text-gray-700">
-                      Lugar / Plazo límite
+                      Lugar
                     </label>
 
                     <input
@@ -1080,7 +1113,7 @@ export default function CreateEventModal({
                     </span>
 
                     <h4 className="text-sm font-semibold text-gray-900">
-                      + Agregar Nueva Subtarea Logística
+                      Agregar Nueva Subtarea Logística
                     </h4>
 
                   </div>
@@ -1262,7 +1295,7 @@ export default function CreateEventModal({
                   CAPACIDAD DEL PLANNER
               =========================================================== */}
 
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="sticky top-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
 
                 <div className="mb-3 flex items-center justify-between">
 
@@ -1281,15 +1314,15 @@ export default function CreateEventModal({
                 <div className="rounded-xl bg-indigo-50 p-4">
 
                   <p className="text-xs uppercase text-gray-500">
-                    Distribución Óptima
+                    Límite de capacidad diaria
                   </p>
 
                   <p className="text-xl font-bold text-gray-900">
-                    {totalHours.toFixed(1)} h / sem
+                    {dailyLimit.toFixed(1)} h / día
                   </p>
 
                   <p className="mt-1 text-xs font-medium text-green-700">
-                    ✓ Riesgo: Nulo
+                    Riesgo: <span className={riskClass}>{riskLabel}</span>
                   </p>
 
                 </div>
@@ -1300,12 +1333,10 @@ export default function CreateEventModal({
 
                   <div className="flex justify-between text-xs text-gray-500">
 
-                    <span>
-                      Límite semanal recomendado
-                    </span>
+                    <span>Día más cargado{busiestDay ? ` (${busiestDay[0]})` : ""}</span>
 
                     <span>
-                      35.0 h
+                      {busiestHours.toFixed(1)} / {dailyLimit.toFixed(1)} h
                     </span>
 
                   </div>
@@ -1317,7 +1348,7 @@ export default function CreateEventModal({
                       className="h-full rounded-full bg-green-700"
                       style={{
                         width: `${Math.min(
-                          (totalHours / 35) * 100,
+                          capacityRatio * 100,
                           100
                         )}%`,
                       }}
@@ -1334,7 +1365,7 @@ export default function CreateEventModal({
                   ZONA DE RIESGO
               =========================================================== */}
 
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="sticky top-[240px] rounded-xl border border-red-200 bg-red-50 p-4">
 
                 <div className="flex items-center gap-2 text-red-600">
 

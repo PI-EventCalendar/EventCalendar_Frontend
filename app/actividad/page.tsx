@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import apiClient from "@/lib/axios";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 import Sidebar from "@/components/ui/Sidebar";
 import CreateEventModal, {
@@ -22,6 +23,7 @@ interface Event {
   course: string;
   activity_type: string;
   description: string;
+  location: string;
   event_date: string;
   progress_percentage: number;
   total_tasks: number;
@@ -69,6 +71,8 @@ function EventsListContent() {
 
   // Mensaje de éxito
   const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const queryClient = useQueryClient();
 
   // ============================================================
   // OBTENER EVENTOS
@@ -143,6 +147,7 @@ function EventsListContent() {
       setEvents((currentEvents) =>
         currentEvents.filter((event) => event.id !== eventId),
       );
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       setSuccessMessage("Evento eliminado exitosamente.");
 
@@ -170,6 +175,7 @@ function EventsListContent() {
 
   const handleEventSaved = async (newEvent: CreatedEvent) => {
     try {
+      setErrorMessage("");
       // ========================================================
       // EDICIÓN DE EVENTO
       // ========================================================
@@ -182,6 +188,7 @@ function EventsListContent() {
           title: newEvent.title,
           activity_type: newEvent.activity_type,
           description: newEvent.description,
+          location: newEvent.location,
           event_date: newEvent.event_date,
           tasks: newEvent.tasks,
         });
@@ -200,6 +207,7 @@ function EventsListContent() {
 
         // Mensaje de éxito
         setSuccessMessage("Evento actualizado exitosamente.");
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
         setTimeout(() => {
           setSuccessMessage("");
@@ -225,9 +233,10 @@ function EventsListContent() {
 
       // 4. Mostrar mensaje de éxito
       setSuccessMessage("Evento guardado exitosamente.");
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       setTimeout(() => {
-        setSuccessMessage("");
+        setErrorMessage("");
       }, 3000);
     } catch (error) {
       // ========================================================
@@ -239,7 +248,8 @@ function EventsListContent() {
       const detail = axios.isAxiosError(error)
         ? error.response?.data?.detail
         : null;
-      setSuccessMessage(
+      setSuccessMessage("");
+      setErrorMessage(
         detail?.error === "DailyOverloadConflict"
           ? `No se puede guardar el plan logístico. El ${detail.target_date} tienes ${detail.current_hours} h programadas y el límite es ${detail.daily_hour_limit} h.`
           : eventToEdit
@@ -281,6 +291,12 @@ function EventsListContent() {
                 El evento fue agregado a Mis Eventos.
               </p>
             </div>
+          </div>
+        )}
+        {errorMessage && (
+          <div className="fixed right-6 top-6 z-[100] rounded-xl border border-red-200 bg-white px-5 py-4 shadow-lg" role="alert">
+            <p className="text-sm font-semibold text-red-800">Error al guardar evento</p>
+            <p className="text-xs text-red-600">{errorMessage}</p>
           </div>
         )}
 

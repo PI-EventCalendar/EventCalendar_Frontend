@@ -9,6 +9,7 @@ import { PostponeModal } from "@/features/tasks/components/PostponeModal";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import Link from "next/link";
 import Sidebar from "@/components/ui/Sidebar";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ============================================================
 // TIPOS
@@ -60,6 +61,7 @@ function EventDetailContent() {
   const params = useParams<{ id: string }>();
 
   const eventId = params.id;
+  const queryClient = useQueryClient();
 
   // ============================================================
   // ESTADOS
@@ -153,6 +155,7 @@ function EventDetailContent() {
       // ========================================================
 
       await apiClient.patch(`/tasks/${taskId}/`, { status: newStatus, ...(note ? { notes: note } : {}) });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       // ========================================================
       // ACTUALIZAR ESTADO LOCAL

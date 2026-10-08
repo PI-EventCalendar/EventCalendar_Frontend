@@ -104,7 +104,7 @@ export default function Sidebar() {
 
         <div className="flex flex-col">
           <span className="text-2xl font-bold leading-tight text-gray-900">
-            EventCalendar
+            EventFlow
           </span>
 
           <span className="text-sm font-semibold tracking-wide text-gray-600">
@@ -130,7 +130,7 @@ export default function Sidebar() {
           >
             <DashboardIcon />
 
-            <span className="text-lg font-medium">Inicio</span>
+            <span className="text-lg font-medium">Hoy</span>
           </Link>
 
           <Link
