@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import apiClient from "@/lib/axios";
-import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 
 import Sidebar from "@/components/ui/Sidebar";
 import CreateEventModal, {
   CreatedEvent,
 } from "@/components/ui/CreateEventModal";
+import { extractDailyOverloadConflict } from "@/components/ui/CreateEventConflictModal";
+import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
 
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 
@@ -69,9 +70,19 @@ function EventsListContent() {
   // Evento que se está editando
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
-  // Mensaje de éxito
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  // Mensajes temporales: desaparecen solos.
+  const {
+    message: successMessage,
+    show: showSuccessMessage,
+    clear: clearSuccessMessage,
+  } = useAutoDismissMessage(3000);
+
+  const {
+    message: errorMessage,
+    show: showErrorMessage,
+    clear: clearErrorMessage,
+  } = useAutoDismissMessage(5000);
+
   const queryClient = useQueryClient();
 
   // ============================================================
@@ -149,11 +160,7 @@ function EventsListContent() {
       );
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      setSuccessMessage("Evento eliminado exitosamente.");
-
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 3000);
+      showSuccessMessage("Evento eliminado exitosamente.");
     } catch (error) {
       console.error("Error al eliminar el evento:", error);
 
@@ -173,9 +180,19 @@ function EventsListContent() {
   // CREAR / EDITAR EVENTO
   // ============================================================
 
+  /**
+   * Guarda un evento nuevo o actualiza uno existente.
+   *
+   * - Si todo sale bien, termina sin lanzar error y CreateEventModal
+   *   se cierra.
+   * - Si falla, relanza el error (throw) para que CreateEventModal lo
+   *   maneje: si es un DailyOverloadConflict (409) abre
+   *   CreateEventConflictModal; si no, muestra el aviso de error.
+   */
   const handleEventSaved = async (newEvent: CreatedEvent) => {
     try {
-      setErrorMessage("");
+      clearErrorMessage();
+
       // ========================================================
       // EDICIÓN DE EVENTO
       // ========================================================
@@ -206,12 +223,8 @@ function EventsListContent() {
         setEventToEdit(null);
 
         // Mensaje de éxito
-        setSuccessMessage("Evento actualizado exitosamente.");
+        showSuccessMessage("Evento actualizado exitosamente.");
         await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 3000);
 
         return;
       }
@@ -232,12 +245,8 @@ function EventsListContent() {
       setEvents((currentEvents) => [...currentEvents, createdEvent]);
 
       // 4. Mostrar mensaje de éxito
-      setSuccessMessage("Evento guardado exitosamente.");
+      showSuccessMessage("Evento guardado exitosamente.");
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-
-      setTimeout(() => {
-        setErrorMessage("");
-      }, 3000);
     } catch (error) {
       // ========================================================
       // MANEJO DE ERRORES
@@ -245,21 +254,21 @@ function EventsListContent() {
 
       console.error("Error al guardar el evento:", error);
 
-      const detail = axios.isAxiosError(error)
-        ? error.response?.data?.detail
-        : null;
-      setSuccessMessage("");
-      setErrorMessage(
-        detail?.error === "DailyOverloadConflict"
-          ? `No se puede guardar el plan logístico. El ${detail.target_date} tienes ${detail.current_hours} h programadas y el límite es ${detail.daily_hour_limit} h.`
-          : eventToEdit
+      /*
+       * Conflicto de carga diaria: NO mostramos el aviso de error
+       * de la página. CreateEventModal abre CreateEventConflictModal
+       * para que el usuario resuelva el conflicto.
+       */
+      if (!extractDailyOverloadConflict(error)) {
+        clearSuccessMessage();
+        showErrorMessage(
+          eventToEdit
             ? "No fue posible actualizar el evento."
             : "No fue posible guardar el evento.",
-      );
+        );
+      }
 
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 3000);
+      // Siempre relanzamos: CreateEventModal decide qué mostrar.
       throw error;
     }
   };
@@ -284,18 +293,21 @@ function EventsListContent() {
 
             <div>
               <p className="text-sm font-semibold text-gray-900">
-                Guardado exitosamente
-              </p>
-
-              <p className="text-xs text-gray-500">
-                El evento fue agregado a Mis Eventos.
+                {successMessage}
               </p>
             </div>
           </div>
         )}
+
+        {/* TOAST DE ERROR */}
         {errorMessage && (
-          <div className="fixed right-6 top-6 z-[100] rounded-xl border border-red-200 bg-white px-5 py-4 shadow-lg" role="alert">
-            <p className="text-sm font-semibold text-red-800">Error al guardar evento</p>
+          <div
+            className="fixed right-6 top-6 z-[100] rounded-xl border border-red-200 bg-white px-5 py-4 shadow-lg"
+            role="alert"
+          >
+            <p className="text-sm font-semibold text-red-800">
+              Error al guardar evento
+            </p>
             <p className="text-xs text-red-600">{errorMessage}</p>
           </div>
         )}
@@ -421,7 +433,8 @@ function EventsListContent() {
         </div>
       </main>
 
-      {/* MODAL CREAR EVENTO */}
+      {/* MODAL CREAR / EDITAR EVENTO
+          (el conflicto de carga diaria lo maneja CreateEventModal) */}
       <CreateEventModal
         isOpen={isCreateEventOpen}
         onClose={() => {
