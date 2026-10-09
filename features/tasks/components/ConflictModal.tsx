@@ -27,133 +27,192 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   if (!isOpen || !conflictData) return null;
 
   const totalProjected = conflictData.currentHours + conflictData.addedHours;
+  const taskTitle = conflictData.taskToReschedule?.title || "Gestión";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onResolve(selectedOption, { newDate, newHours });
   };
 
+  /* Estilos compartidos de los botones de opción (pills) */
+  const pillClass = (active: boolean) =>
+    `inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+      active
+        ? "border-red-600 bg-red-600 text-white"
+        : "border-red-200 bg-white text-red-700 hover:bg-red-50"
+    }`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl border border-gray-100">
-        {/* Header */}
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 font-bold">
-            ⚠️
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-gray-100 bg-white p-6 shadow-xl">
+        {/* Header del modal */}
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              Conflicto de Sobrecarga Diaria
+            <h2 className="text-2xl font-bold text-slate-900">
+              Reprogramar subtarea
             </h2>
-            <p className="text-sm text-gray-500">
-              Límite de capacidad excedido para hoy
+            <p className="mt-1 text-sm text-gray-500">
+              &quot;{taskTitle}&quot; — Ajusta la fecha y horas planificadas
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+          >
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
 
-        {/* Info Box */}
-        <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
-          <p className="font-medium">
-            Al mover &quot;{conflictData.taskToReschedule?.title || "Gestión"}
-            &quot; para hoy, superas tu límite de {conflictData.limitHours}h
-            diarias.
-          </p>
-          <p className="mt-1 font-semibold">
-            Total proyectado: {totalProjected} horas.
-          </p>
+        {/* Tarjeta de conflicto */}
+        <div className="mb-5 rounded-2xl border border-red-200 bg-red-50/60 p-4">
+          {/* Cabecera de la tarjeta */}
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-lg">
+              ⚠️
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-red-900">
+                  Conflicto de Sobrecarga Diaria
+                </h3>
+
+                <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                  Límite excedido
+                </span>
+              </div>
+
+              <p className="mt-1 text-sm leading-relaxed text-red-700">
+                Al mover &quot;{taskTitle}&quot; para hoy, superas tu límite de{" "}
+                {conflictData.limitHours}h diarias. Total proyectado:{" "}
+                {totalProjected} horas.
+              </p>
+            </div>
+          </div>
+
+          {/* Estadísticas */}
+          <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-red-100 bg-white p-3 text-center">
+            <div>
+              <p className="text-xs text-gray-500">Horas actuales</p>
+              <p className="text-lg font-bold text-slate-900">
+                {Number(conflictData.currentHours).toFixed(2)}h
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-500">A reprogramar</p>
+              <p className="text-lg font-bold text-orange-700">
+                {Number(conflictData.addedHours).toFixed(2)}h
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-500">Límite diario</p>
+              <p className="text-lg font-bold text-red-600">
+                {Number(conflictData.limitHours).toFixed(2)}h
+              </p>
+            </div>
+          </div>
+
+          {/* Opciones para resolver */}
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-red-200 pt-4">
+            <span className="text-sm text-red-700">
+              Opciones para resolver el conflicto:
+            </span>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedOption("REDUCE_HOURS")}
+                className={pillClass(selectedOption === "REDUCE_HOURS")}
+              >
+                ✏️ Ajustar horas
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedOption("MOVE_DATE")}
+                className={pillClass(selectedOption === "MOVE_DATE")}
+              >
+                📅 Cambiar fecha
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedOption("FORCE")}
+                className={pillClass(selectedOption === "FORCE")}
+              >
+                🚨 Forzar sobrecarga
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Opción 1: Mover fecha */}
-          <label
-            className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === "MOVE_DATE" ? "border-indigo-600 bg-indigo-50/50" : "border-gray-200"}`}
-          >
-            <div className="flex items-center space-x-3">
+          {selectedOption === "MOVE_DATE" && (
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-800">
+                Nueva fecha *
+              </label>
               <input
-                type="radio"
-                name="resolution"
-                checked={selectedOption === "MOVE_DATE"}
-                onChange={() => setSelectedOption("MOVE_DATE")}
-                className="h-4 w-4 text-indigo-600"
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="w-full rounded-xl border-2 border-amber-300 bg-amber-50/30 p-2.5 text-sm text-gray-900 outline-none focus:border-amber-400"
+                required
               />
-              <span className="font-semibold text-gray-900">
-                Mover a otra fecha disponible
-              </span>
             </div>
-            {selectedOption === "MOVE_DATE" && (
-              <div className="mt-3 pl-7">
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 p-2 text-sm text-gray-900"
-                  required
-                />
-              </div>
-            )}
-          </label>
+          )}
 
-          {/* Opción 2: Reducir horas */}
-          <label
-            className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === "REDUCE_HOURS" ? "border-indigo-600 bg-indigo-50/50" : "border-gray-200"}`}
-          >
-            <div className="flex items-center space-x-3">
+          {selectedOption === "REDUCE_HOURS" && (
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-800">
+                Horas estimadas *
+              </label>
               <input
-                type="radio"
-                name="resolution"
-                checked={selectedOption === "REDUCE_HOURS"}
-                onChange={() => setSelectedOption("REDUCE_HOURS")}
-                className="h-4 w-4 text-indigo-600"
+                type="number"
+                step="0.5"
+                value={newHours}
+                onChange={(e) => setNewHours(parseFloat(e.target.value))}
+                className="w-full rounded-xl border-2 border-amber-300 bg-amber-50/30 p-2.5 text-sm text-gray-900 outline-none focus:border-amber-400"
+                required
               />
-              <span className="font-semibold text-gray-900">
-                Reducir horas estimadas
-              </span>
             </div>
-            {selectedOption === "REDUCE_HOURS" && (
-              <div className="mt-3 pl-7">
-                <input
-                  type="number"
-                  step="0.5"
-                  value={newHours}
-                  onChange={(e) => setNewHours(parseFloat(e.target.value))}
-                  className="w-full rounded-md border border-gray-300 p-2 text-sm text-gray-900"
-                  required
-                />
-              </div>
-            )}
-          </label>
+          )}
 
-          {/* Opción 3: Forzar */}
-          <label
-            className={`block rounded-lg border p-4 cursor-pointer transition ${selectedOption === "FORCE" ? "border-red-600 bg-red-50/50" : "border-gray-200"}`}
-          >
-            <div className="flex items-center space-x-3">
-              <input
-                type="radio"
-                name="resolution"
-                checked={selectedOption === "FORCE"}
-                onChange={() => setSelectedOption("FORCE")}
-                className="h-4 w-4 text-red-600"
-              />
-              <span className="font-semibold text-gray-900">
-                Forzar sobrecarga diaria
-              </span>
-            </div>
-          </label>
+          {selectedOption === "FORCE" && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              Se mantendrá la programación actual aunque supere tu límite de{" "}
+              {conflictData.limitHours}h diarias.
+            </p>
+          )}
 
           {/* Botones */}
-          <div className="mt-6 flex justify-end space-x-3">
+          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-gray-50"
             >
               Cancelar
             </button>
+
             <button
               type="submit"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
             >
               Confirmar reprogramación
             </button>

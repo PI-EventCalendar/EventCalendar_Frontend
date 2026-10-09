@@ -1,10 +1,11 @@
-export type TaskStatus = "pending" | "in_progress" | "completed" | "postponed" | "cancelled";
+export type TaskStatus =
+  "pending" | "in_progress" | "completed" | "postponed" | "cancelled";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface TaskCategory {
   id: number;
   name: string;
-  color: string;    // Hex color, ej. "#FF5733"
+  color: string; // Hex color, ej. "#FF5733"
   owner: number;
 }
 
@@ -14,11 +15,11 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  due_date: string | null;     // ISO 8601
-  event: number | null;       // event id (FK opcional)
+  due_date: string | null; // ISO 8601
+  event: number | null; // event id (FK opcional)
   event_title?: string;
   event_course?: string;
-  category: number | null;    // category id (FK opcional)
+  category: number | null; // category id (FK opcional)
   category_detail: TaskCategory | null;
   owner: number;
   created_at: string;
@@ -28,9 +29,6 @@ export interface Task {
   scheduled_date: string; // YYYY-MM-DD
   estimated_hours: string | number; // DecimalField
   notes?: string; // blank=True
-
-
-  
 }
 
 export interface CreateTaskPayload {
@@ -49,7 +47,22 @@ export interface CreateTaskPayload {
 export type UpdateTaskPayload = Partial<CreateTaskPayload>;
 
 export interface ReschedulePayload {
-  scheduled_date: string; // YYYY-MM-DD, igual al DateField del backend
+  new_date?: string;
+  new_hours?: number;
+  reason?: string;
+  scheduled_date?: string;
+  estimated_hours?: number;
+}
+
+export interface DailyOverloadConflictError {
+  error: string;
+  detail: string;
+  target_date: string;
+  current_hours: string;
+  attempted_hours: string;
+  daily_hour_limit: string;
+  /** Fechas alternativas con capacidad disponible (puede ser lista vacía). */
+  suggested_dates: string[];
 }
 
 export interface ConflictData {
@@ -60,4 +73,5 @@ export interface ConflictData {
   taskToReschedule?: Task;
 }
 
-export type ResolutionAction = 'MOVE_DATE' | 'REDUCE_HOURS' | 'FORCE';
+export type ResolutionAction =
+  "MOVE_DATE" | "REDUCE_HOURS" | "FORCE" | "CANCEL";
