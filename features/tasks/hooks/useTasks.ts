@@ -38,7 +38,10 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateTaskPayload) => createTask(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 
@@ -59,7 +62,10 @@ export function useUpdateTaskStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: TaskStatus }) =>
       updateTaskStatus(id, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 
@@ -67,7 +73,10 @@ export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => deleteTask(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 
@@ -78,6 +87,7 @@ export function useRescheduleTask(id: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: taskQueryKey(id) });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

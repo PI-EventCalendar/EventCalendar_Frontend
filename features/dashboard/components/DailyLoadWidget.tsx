@@ -16,17 +16,20 @@ export function DailyLoadWidget({ date }: DailyLoadWidgetProps) {
   if (isError) return <p className="text-sm text-destructive">Error al cargar la carga diaria.</p>;
   if (!data) return null;
 
+  const limit = Number(data.daily_hour_limit);
+  const scheduled = Number(data.total_hours_scheduled);
+  const loadPercentage = limit > 0 ? Math.min(100, Math.max(0, scheduled / limit * 100)) : 0;
   const loadLevel =
-    data.load_percentage >= 80
+    loadPercentage >= 80
       ? "Alta"
-      : data.load_percentage >= 50
+      : loadPercentage >= 50
         ? "Media"
         : "Baja";
 
   const loadColor =
-    data.load_percentage >= 80
+    loadPercentage >= 80
       ? "text-destructive"
-      : data.load_percentage >= 50
+      : loadPercentage >= 50
         ? "text-yellow-600"
         : "text-green-600";
 
@@ -41,15 +44,15 @@ export function DailyLoadWidget({ date }: DailyLoadWidgetProps) {
       </div>
 
       <ProgressBar
-        completed={data.completed_count}
-        total={data.task_count}
+        completed={data.tasks.filter((task) => task.status === "completed").length}
+        total={data.tasks.length}
         showLabel={true}
       />
 
       <p className="text-xs text-muted-foreground text-center">
-        {data.task_count === 0
+        {data.tasks.length === 0
           ? "Sin tareas programadas"
-          : `${data.task_count} tarea${data.task_count !== 1 ? "s" : ""} programada${data.task_count !== 1 ? "s" : ""}`}
+          : `${data.tasks.length} tarea${data.tasks.length !== 1 ? "s" : ""} programada${data.tasks.length !== 1 ? "s" : ""}`}
       </p>
     </div>
   );

@@ -122,22 +122,29 @@ export function LoginForm() {
 
               <div className="lg:col-span-6 flex flex-col justify-center">
                 <div className="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-12 flex flex-col">
-                  {/* Logo */}
-                  <div className="flex items-center gap-2 mb-6">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
-                      EF
-                    </div>
+                 
+                 
+              {/* Logo */}
+              <div className="mb-6 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                  <img
+                    src="/event-calendar-logo.png"
+                    alt="EventCalendar"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
 
-                    <div className="flex flex-col">
-                      <span className="text-[18px] font-semibold leading-tight tracking-tight">
-                        EventCalendar
-                      </span>
+                <div className="flex flex-col">
+                  <span className="text-[18px] font-semibold leading-tight tracking-tight">
+                    EventCalendar
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">
+                    Ops &; Logistics
+                  </span>
+                </div>
+              </div>
 
-                      <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">
-                        Ops & Logistics
-                      </span>
-                    </div>
-                  </div>
+
 
                   {/* Título */}
                   <div className="space-y-1 mb-6">
@@ -280,7 +287,7 @@ export function LoginForm() {
                       <span>
                         {isSubmitting
                           ? "Ingresando..."
-                          : "Iniciar Sesión Tradicional"}
+                          : "Iniciar Sesión"}
                       </span>
                     </button>
                   </form>

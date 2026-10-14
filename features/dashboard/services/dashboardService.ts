@@ -11,11 +11,11 @@ export async function getTodayTasks(): Promise<TodayTasksSummary> {
 }
 
 /**
- * GET /dashboard/daily-load/ — carga de trabajo para una fecha dada.
+ * GET /dashboard/load/ — carga de trabajo para una fecha dada.
  * Si no se proporciona `date`, el backend usa la fecha actual.
  */
 export async function getDailyLoad(date?: string): Promise<DailyLoad> {
-  const { data } = await apiClient.get<DailyLoad>("/dashboard/daily-load/", {
+  const { data } = await apiClient.get<DailyLoad>("/dashboard/load/", {
     params: date ? { date } : undefined,
   });
   return data;

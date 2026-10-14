@@ -2,207 +2,24 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Settings } from "lucide-react";
-function DashboardIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <rect x="4" y="4" width="6" height="6" rx="1" />
-      <rect x="14" y="4" width="6" height="6" rx="1" />
-      <rect x="4" y="14" width="6" height="6" rx="1" />
-      <rect x="14" y="14" width="6" height="6" rx="1" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <rect x="3" y="4" width="18" height="17" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg
-      className="w-6 h-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-..." />
-    </svg>
-  );
-}
+import { CalendarDays, LayoutGrid, LogOut, Settings, SlidersHorizontal } from "lucide-react";
+import { useTasks } from "@/features/tasks/hooks/useTasks";
 
 export default function Sidebar() {
-  // Obtiene la ruta actual del navegador.
-  // Ejemplos:
-  // /hoy
-  // /actividad
-  // /actividad/20
   const pathname = usePathname();
   const router = useRouter();
-  // ============================================================
-  // CERRAR SESIÓN
-  // ============================================================
-  // Eliminamos los tokens utilizados para autenticar las
-  // peticiones al backend.
-  //
-  // Al eliminar el access_token, apiClient ya no podrá enviar:
-  // Authorization: Bearer <token>
-  //
-  // Después redirigimos al usuario al login para que tenga
-  // que autenticarse nuevamente.
-  // ============================================================
-  const handleLogout = () => {
-    // Eliminamos el token de acceso actual.
-    localStorage.removeItem("access_token");
-
-    // Eliminamos el refresh token si nuestra aplicación
-    // lo está almacenando en localStorage.
-    localStorage.removeItem("refresh_token");
-
-    // Eliminamos información auxiliar del usuario, si existe.
-    localStorage.removeItem("user_name");
-
-    // Mandamos al usuario al login.
-    router.push("/login");
-  };
-
-  // Inicio está activo únicamente en /hoy.
-  const isInicioActive = pathname === "/hoy";
-
-  // Eventos permanece activo tanto en /actividad
-  // como en cualquier página hija, por ejemplo /actividad/20.
-  const isEventosActive =
-    pathname === "/actividad" || pathname.startsWith("/actividad/");
-
-  return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-gray-100 bg-white">
-      {/* LOGO */}
-      <div className="flex items-center gap-4 px-7 py-6">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white">
-          <CalendarIcon />
-        </div>
-
-        <div className="flex flex-col">
-          <span className="text-2xl font-bold leading-tight text-gray-900">
-            EventCalendar
-          </span>
-
-          <span className="text-sm font-semibold tracking-wide text-gray-600">
-            OPS & LOGISTICS
-          </span>
-        </div>
-      </div>
-
-      {/* MENÚ */}
-      <div className="px-6 pt-8">
-        <span className="px-3 text-base font-bold uppercase tracking-wide text-gray-600">
-          Menú Principal
-        </span>
-
-        <nav className="mt-4 flex flex-col gap-2">
-          <Link
-            href="/hoy"
-            className={`flex items-center gap-4 rounded-xl px-4 py-4 transition ${
-              isInicioActive
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            }`}
-          >
-            <DashboardIcon />
-
-            <span className="text-lg font-medium">Hoy</span>
-          </Link>
-
-          <Link
-            href="/actividad"
-            className={`flex items-center gap-4 rounded-xl px-4 py-4 transition ${
-              isEventosActive
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            }`}
-          >
-            <CalendarIcon />
-
-            <span className="text-lg font-medium">Eventos</span>
-          </Link>
-
-          <Link
-            href="/configuracion"
-            className="flex items-center gap-4 rounded-xl px-4 py-4 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
-          >
-            <Settings className="h-6 w-6" />
-            <span className="text-lg font-medium">Configuración</span>
-          </Link>
-        </nav>
-      </div>
-
-      {/* USUARIO */}
-      <div className="mt-auto border-t border-gray-100 p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-600">
-            J
-          </div>
-
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">Juan</p>
-
-            <p className="truncate text-xs text-gray-500">Administrador</p>
-          </div>
-        </div>
-
-        {/* BOTÓN CERRAR SESIÓN */}
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-4 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-red-600 cursor-pointer"
-        >
-          {/* Icono de salida */}
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
-            />
-
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M10 17l5-5-5-5"
-            />
-
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12H3" />
-          </svg>
-
-          <span>Cerrar sesión</span>
-        </button>
-      </div>
+  const logout = () => { localStorage.removeItem("access_token"); localStorage.removeItem("refresh_token"); localStorage.removeItem("user_name"); router.push("/login"); };
+  const activeToday = pathname === "/hoy";
+  const activeEvents = pathname === "/actividad" || pathname.startsWith("/actividad/");
+  const { data } = useTasks();
+  const taskList = Array.isArray(data) ? data : data?.results ?? [];
+  const todayCount = taskList.filter((task) => ["pending", "in_progress", "postponed"].includes(task.status)).length;
+  return <>
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r border-slate-100 bg-white lg:flex">
+      <div className="flex items-center gap-3 px-5 py-4"><div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-md"><img src="/event-calendar-logo.png" alt="EventCalendar" className="h-full w-full rounded-lg object-contain" /></div><div><p className="text-base font-bold leading-tight text-slate-900">EventCalendar</p><p className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">OPS &amp; LOGISTICS</p></div></div>
+      <div className="px-3 pt-5"><p className="px-2 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Navegación operativa</p><nav className="space-y-1"><Link href="/hoy" className={`flex h-10 items-center justify-between rounded-lg px-3 text-sm font-semibold transition ${activeToday ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"}`}><span className="flex items-center gap-2"><LayoutGrid className="h-4 w-4" />Hoy</span>{activeToday && <span className="rounded-full bg-emerald-300 px-2 py-0.5 text-[11px] text-emerald-950">{todayCount ?? "—"}</span>}</Link><Link href="/actividad" className={`flex h-10 items-center justify-between rounded-lg px-3 text-sm font-semibold transition ${activeEvents ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"}`}><span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Eventos</span></Link><Link href="/configuracion" className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"><Settings className="h-4 w-4" />Configuración</Link></nav></div>
+      <div className="mt-auto border-t border-slate-100 p-3"><div className="rounded-xl bg-indigo-50 p-3"><div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">J</div><span className="truncate text-xs font-semibold text-slate-800">Juan</span></div><button type="button" onClick={logout} className="mt-3 flex w-full items-center gap-2 rounded-lg px-1 text-xs font-semibold text-slate-600 hover:text-red-600"><LogOut className="h-4 w-4" />Cerrar sesión</button></div></div>
     </aside>
-  );
+    <nav className="fixed inset-x-3 bottom-3 z-40 flex justify-around rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur lg:hidden"><Link href="/hoy" aria-label="Hoy" className={`rounded-xl p-3 ${activeToday ? "bg-indigo-600 text-white" : "text-slate-600"}`}><LayoutGrid className="h-5 w-5" /></Link><Link href="/actividad" aria-label="Eventos" className={`rounded-xl p-3 ${activeEvents ? "bg-indigo-600 text-white" : "text-slate-600"}`}><CalendarDays className="h-5 w-5" /></Link><Link href="/configuracion" aria-label="Configuración" className="rounded-xl p-3 text-slate-600"><SlidersHorizontal className="h-5 w-5" /></Link></nav>
+  </>;
 }
