@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { TaskStatus } from "@/types";
 import apiClient from "@/lib/axios";
 import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
 import { PostponeModal } from "@/features/tasks/components/PostponeModal";
+import { CompleteTaskModal } from "@/features/tasks/components/CompleteTaskModal";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import Link from "next/link";
 import Sidebar from "@/components/ui/Sidebar";
@@ -23,6 +24,7 @@ interface EventTask {
   scheduled_date: string;
   status: TaskStatus;
   notes?: string;
+  completion_note?: string | null;
 }
 
 interface Event {
@@ -130,12 +132,13 @@ function EventDetailContent() {
   } = useAutoDismissMessage(6000);
 
   const [postponeTaskId, setPostponeTaskId] = useState<number | null>(null);
+  const [completeTaskId, setCompleteTaskId] = useState<number | null>(null);
 
   // ============================================================
   // OBTENER EVENTO
   // ============================================================
 
-  const loadEvent = async () => {
+  const loadEvent = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -154,7 +157,7 @@ function EventDetailContent() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [eventId]);
 
   // ============================================================
   // CARGAR EVENTO AL ABRIR LA PÁGINA
@@ -165,8 +168,8 @@ function EventDetailContent() {
       return;
     }
 
-    loadEvent();
-  }, [eventId]);
+    void Promise.resolve().then(loadEvent);
+  }, [eventId, loadEvent]);
 
   // ============================================================
   // CAMBIAR ESTADO DE UNA TAREA
@@ -174,8 +177,8 @@ function EventDetailContent() {
 
   const handleTaskStatusChange = async (
     taskId: number,
-    currentStatus: TaskStatus,
-    note = "",
+    newStatus: TaskStatus,
+    completionNote?: string | null,
   ) => {
     // Evitamos peticiones simultáneas
     if (updatingTaskId !== null) {
@@ -190,21 +193,18 @@ function EventDetailContent() {
       // DETERMINAR NUEVO ESTADO
       // ========================================================
 
-      const newStatus = note
-        ? "postponed"
-        : currentStatus === "completed"
-          ? "pending"
-          : "completed";
-
       // ========================================================
       // PATCH /api/v1/tasks/{id}/
       // ========================================================
 
       await apiClient.patch(`/tasks/${taskId}/`, {
         status: newStatus,
-        ...(note ? { notes: note } : {}),
+        ...(newStatus === "completed" ? { completion_note: completionNote } : {}),
       });
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
 
       // ========================================================
       // ACTUALIZAR ESTADO LOCAL
@@ -221,6 +221,7 @@ function EventDetailContent() {
             return {
               ...task,
               status: newStatus as TaskStatus,
+              ...(newStatus === "completed" ? { completion_note: completionNote?.trim() || null } : {}),
             };
           }
 
@@ -265,6 +266,7 @@ function EventDetailContent() {
       showStatusError(
         "No fue posible actualizar la subtarea. Verifica tu conexión e inténtalo nuevamente.",
       );
+      throw new Error("No fue posible guardar el cambio. La nota sigue disponible para volver a intentarlo.");
     } finally {
       setUpdatingTaskId(null);
     }
@@ -606,7 +608,9 @@ function EventDetailContent() {
                           type="checkbox"
                           checked={task.status === "completed"}
                           onChange={() =>
-                            handleTaskStatusChange(task.id, task.status)
+                            task.status === "completed"
+                              ? handleTaskStatusChange(task.id, "pending")
+                              : setCompleteTaskId(task.id)
                           }
                           disabled={updatingTaskId === task.id}
                           className="mt-1 h-5 w-5 cursor-pointer rounded border-gray-300 text-indigo-600 disabled:cursor-not-allowed"
@@ -643,6 +647,12 @@ function EventDetailContent() {
                                 Ver nota de posposición
                               </summary>
                               <p className="mt-1">{task.notes}</p>
+                            </details>
+                          )}
+                          {task.status === "completed" && task.completion_note && (
+                            <details className="mt-2 text-xs text-slate-600">
+                              <summary className="cursor-pointer font-medium">Ver nota de finalización</summary>
+                              <p className="mt-1">{task.completion_note}</p>
                             </details>
                           )}
                         </div>
@@ -701,6 +711,15 @@ function EventDetailContent() {
             open={postponeTaskId !== null}
             onOpenChange={(open) => !open && setPostponeTaskId(null)}
             onSuccess={loadEvent}
+          />
+          <CompleteTaskModal
+            task={event.tasks.find((task) => task.id === completeTaskId) ?? null}
+            open={completeTaskId !== null}
+            onOpenChange={(open) => !open && setCompleteTaskId(null)}
+            onSave={async (note) => {
+              if (completeTaskId === null) return;
+              await handleTaskStatusChange(completeTaskId, "completed", note);
+            }}
           />
         </div>
       </main>

@@ -35,6 +35,12 @@ export async function updateTaskStatus(id: number, status: TaskStatus): Promise<
   return updateTask(id, { status });
 }
 
+/** POST /tasks/{id}/postpone/ — pospone y persiste la fecha futura asignada por el backend. */
+export async function postponeTask(id: number, note: string | null): Promise<Task> {
+  const { data } = await apiClient.post<Task>(`/tasks/${id}/postpone/`, { note });
+  return data;
+}
+
 /** DELETE /tasks/{id}/ — elimina una tarea */
 export async function deleteTask(id: number): Promise<void> {
   await apiClient.delete(`/tasks/${id}/`);

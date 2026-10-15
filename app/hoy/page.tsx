@@ -1,30 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import {
-  Ban,
-  CalendarDays,
-  CalendarClock,
-  Check,
-  CheckCircle2,
-  CircleHelp,
-  Clock3,
-  Filter,
-  Pencil,
-  Search,
-  TimerReset,
-  Trash2,
-  TriangleAlert,
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
+import { Ban, CalendarDays, CalendarClock, Check, CheckCircle2, CircleHelp, Clock3, Filter, Pencil, Search, TimerReset, Trash2, TriangleAlert } from "lucide-react";
 import Sidebar from "@/components/ui/Sidebar";
 import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
 import { PostponeModal } from "@/features/tasks/components/PostponeModal";
-import {
-  useTasks,
-  useUpdateTaskStatus,
-  useDeleteTask,
-} from "@/features/tasks/hooks/useTasks";
+import { CompleteTaskModal } from "@/features/tasks/components/CompleteTaskModal";
+import { useTasks, useUpdateTaskStatus, useDeleteTask } from "@/features/tasks/hooks/useTasks";
 import { useDailyLoad } from "@/features/dashboard/hooks/useDashboard";
 import type { Task, TaskStatus } from "@/features/tasks/types";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
@@ -41,6 +25,7 @@ const sortTasks = (a: Task, b: Task) =>
   dateOnly(a.scheduled_date).getTime() - dateOnly(b.scheduled_date).getTime() ||
   Number(a.estimated_hours) - Number(b.estimated_hours);
 
+<<<<<<< HEAD
 type Actions = {
   reschedule: (task: Task) => void;
   postpone: (task: Task) => void;
@@ -48,6 +33,7 @@ type Actions = {
   remove: (task: Task) => void;
   edit: (task: Task) => void;
 };
+
 function TaskCard({
   task,
   urgency,
@@ -63,13 +49,20 @@ function TaskCard({
       : urgency === "today"
         ? "border-amber-200 bg-[#fff8f1]"
         : "border-slate-100 bg-white";
+
   return (
     <li
       className={`flex flex-col gap-3 rounded-xl border px-3 py-3 shadow-sm transition hover:shadow-md md:flex-row md:items-center md:justify-between ${tint}`}
     >
       <div className="flex min-w-0 items-start gap-3">
         <span
-          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${task.status === "completed" ? "bg-emerald-700 text-white" : urgency === "overdue" ? "border border-red-300 bg-red-100 text-red-600" : "border-2 border-slate-300 bg-white"}`}
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${
+            task.status === "completed"
+              ? "bg-emerald-700 text-white"
+              : urgency === "overdue"
+                ? "border border-red-300 bg-red-100 text-red-600"
+                : "border-2 border-slate-300 bg-white"
+          }`}
           title={urgency === "overdue" ? "Tarea vencida" : labels[task.status]}
         >
           {task.status === "completed" ? (
@@ -88,7 +81,11 @@ function TaskCard({
             </span>
             {urgency && (
               <span
-                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${urgency === "overdue" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  urgency === "overdue"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
               >
                 {urgency === "overdue" ? "Vencida" : "Para hoy"}
               </span>
@@ -107,7 +104,9 @@ function TaskCard({
           </div>
           {task.notes && (
             <details className="mt-1 text-xs text-slate-600">
-              <summary className="cursor-pointer font-medium">Ver nota</summary>
+              <summary className="cursor-pointer font-medium">
+                Ver nota de posposición
+              </summary>
               <p>{task.notes}</p>
             </details>
           )}
@@ -119,7 +118,7 @@ function TaskCard({
           aria-label={`Reprogramar ${task.title}`}
           title="Reprogramar"
           onClick={() => actions.reschedule(task)}
-          className="inline-flex items-center gap-1 rounded-lg border border-indigo-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50 focus:outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500"
+          className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-indigo-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <CalendarClock className="h-4 w-4" />
           Reprogramar
@@ -130,7 +129,7 @@ function TaskCard({
             aria-label={`Posponer ${task.title}`}
             title="Posponer"
             onClick={() => actions.postpone(task)}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <TimerReset className="h-4 w-4" />
             Posponer
@@ -142,7 +141,7 @@ function TaskCard({
             aria-label={`Completar ${task.title}`}
             title="Completar"
             onClick={() => actions.complete(task)}
-            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 cursor-pointer focus:ring-indigo-500"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <CheckCircle2 className="h-4 w-4" />
             Completar
@@ -154,7 +153,7 @@ function TaskCard({
             aria-label={`Eliminar ${task.title}`}
             title="Eliminar"
             onClick={() => actions.remove(task)}
-            className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 focus:outline-none cursor-pointer focus:ring-2 focus:ring-red-500"
+            className="cursor-pointer rounded-lg p-2 text-red-600 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -164,7 +163,7 @@ function TaskCard({
           aria-label={`Editar ${task.title}`}
           title="Editar subtarea"
           onClick={() => actions.edit(task)}
-          className="rounded-lg p-2 text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus:ring-2 cursor-pointer focus:ring-indigo-500"
+          className="cursor-pointer rounded-lg p-2 text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <Pencil className="h-4 w-4" />
         </button>
@@ -225,6 +224,7 @@ export default function TodayPage() {
   );
 }
 function TodayContent() {
+const router = useRouter();
   const { data, isLoading, isError, refetch } = useTasks();
   const tasks = useMemo(
     () => (Array.isArray(data) ? data : (data?.results ?? [])),
@@ -233,16 +233,23 @@ function TodayContent() {
   const { data: load } = useDailyLoad();
   const statusMutation = useUpdateTaskStatus();
   const deleteMutation = useDeleteTask();
+
   const [selected, setSelected] = useState<Task | null>(null);
   const [postpone, setPostpone] = useState<Task | null>(null);
+  const [completion, setCompletion] = useState<Task | null>(null);
+  const [completionOpen, setCompletionOpen] = useState(false);
   const [optimistic, setOptimistic] = useState<Record<number, TaskStatus>>({});
   const [search, setSearch] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TaskStatus>("all");
   const [ordering, setOrdering] = useState(false);
   const [message, setMessage] = useState("");
+
+  const completionInProgress = useRef(false);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const currentTasks = tasks.map((task) =>
     optimistic[task.id] ? { ...task, status: optimistic[task.id] } : task,
   );
@@ -262,6 +269,7 @@ function TodayContent() {
       ),
     [tasks],
   );
+
   const matches = active
     .filter((task) =>
       `${task.title} ${task.event_title ?? ""}`
@@ -272,6 +280,7 @@ function TodayContent() {
       (task) => eventFilter === "all" || String(task.event) === eventFilter,
     )
     .filter((task) => statusFilter === "all" || task.status === statusFilter);
+
   const overdue = matches
     .filter((task) => dateOnly(task.scheduled_date) < today)
     .sort(sortTasks);
@@ -283,6 +292,7 @@ function TodayContent() {
   const upcoming = matches
     .filter((task) => dateOnly(task.scheduled_date) > today)
     .sort(sortTasks);
+
   const todayHours = active
     .filter(
       (task) =>
@@ -290,6 +300,7 @@ function TodayContent() {
         task.status !== "completed",
     )
     .reduce((sum, task) => sum + Number(task.estimated_hours), 0);
+
   const dailyLimit = Number(load?.daily_hour_limit ?? 0);
   const reportedHours = Number(load?.total_hours_scheduled ?? todayHours);
   const percent =
@@ -298,32 +309,55 @@ function TodayContent() {
       : 0;
   const remainingHours =
     dailyLimit > 0 ? Math.max(0, dailyLimit - reportedHours) : 0;
+
   const clear = () => {
     setSearch("");
     setEventFilter("all");
     setStatusFilter("all");
   };
+
   const complete = (task: Task) => {
-    setOptimistic((prev) => ({ ...prev, [task.id]: "completed" }));
-    setMessage("Subtarea marcada como completada");
-    window.setTimeout(async () => {
-      try {
-        await statusMutation.mutateAsync({ id: task.id, status: "completed" });
-        setOptimistic((prev) => {
-          const next = { ...prev };
-          delete next[task.id];
-          return next;
-        });
-      } catch {
-        setOptimistic((prev) => {
-          const next = { ...prev };
-          delete next[task.id];
-          return next;
-        });
-        setMessage("No se pudo completar la subtarea. Inténtalo nuevamente.");
-      }
-    }, 1200);
+    setCompletion(task);
+    setCompletionOpen(true);
   };
+
+  const saveCompletion = async (note: string | null) => {
+    if (!completion) return;
+    const task = completion;
+    completionInProgress.current = true;
+    setOptimistic((prev) => ({ ...prev, [task.id]: "completed" }));
+    setMessage("");
+
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+      await statusMutation.mutateAsync({
+        id: task.id,
+        status: "completed",
+        completion_note: note,
+      });
+      completionInProgress.current = false;
+      setCompletionOpen(false);
+      setCompletion(null);
+      setOptimistic((prev) => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+      setMessage("Subtarea completada y guardada");
+    } catch {
+      completionInProgress.current = false;
+      setOptimistic((prev) => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+      setMessage("No se pudo completar la subtarea. Inténtalo nuevamente.");
+      throw new Error(
+        "No se pudo guardar la finalización. La nota sigue disponible para volver a intentarlo.",
+      );
+    }
+  };
+
   const remove = async (task: Task) => {
     if (!window.confirm(`¿Eliminar “${task.title}”?`)) return;
     try {
@@ -333,15 +367,17 @@ function TodayContent() {
       setMessage("No se pudo eliminar la subtarea.");
     }
   };
+
   const actions: Actions = {
     reschedule: setSelected,
     postpone: setPostpone,
     complete,
     remove,
     edit: (task) => {
-      if (task.event) window.location.href = `/actividad/${task.event}`;
+      if (task.event) router.push(`/actividad/${task.event}`);
     },
   };
+
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#131b2e]">
       <Sidebar />
@@ -358,7 +394,7 @@ function TodayContent() {
               <button
                 type="button"
                 onClick={() => setOrdering((v) => !v)}
-                className="ml-2 inline-flex items-center gap-1 font-semibold cursor-pointer text-indigo-700 underline"
+                className="ml-2 inline-flex cursor-pointer items-center gap-1 font-semibold text-indigo-700 underline"
               >
                 <CircleHelp className="h-4 w-4" />
                 ¿Cómo se ordena?
@@ -376,12 +412,14 @@ function TodayContent() {
             </span>
           </div>
         </header>
+
         {ordering && (
           <div className="mb-4 rounded-xl border border-indigo-100 bg-white p-3 text-sm text-slate-600 shadow-sm">
             Vencidas: más antigua a más reciente. Para hoy y próximas: fecha y,
             en empate, menor cantidad de horas estimadas.
           </div>
         )}
+
         <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Metric
             tone="red"
@@ -410,7 +448,11 @@ function TodayContent() {
                 CARGA VS CAPACIDAD
               </p>
               <span
-                className={`rounded-full px-2 py-1 text-[11px] font-semibold ${load?.is_overloaded ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
+                className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                  load?.is_overloaded
+                    ? "bg-red-100 text-red-700"
+                    : "bg-emerald-100 text-emerald-700"
+                }`}
               >
                 {load?.is_overloaded
                   ? "Excedida"
@@ -428,7 +470,9 @@ function TodayContent() {
             </p>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-indigo-100">
               <div
-                className={`h-full rounded-full transition-all ${load?.is_overloaded ? "bg-red-600" : "bg-emerald-700"}`}
+                className={`h-full rounded-full transition-all ${
+                  load?.is_overloaded ? "bg-red-600" : "bg-emerald-700"
+                }`}
                 style={{ width: `${percent}%` }}
               />
             </div>
@@ -439,6 +483,7 @@ function TodayContent() {
             </p>
           </div>
         </section>
+
         {message && (
           <p
             role="status"
@@ -447,6 +492,7 @@ function TodayContent() {
             {message}
           </p>
         )}
+
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
             <label className="block">
@@ -473,9 +519,8 @@ function TodayContent() {
               <select
                 value={eventFilter}
                 onChange={(e) => setEventFilter(e.target.value)}
-                className="h-9 w-full rounded-md border border-transparent bg-indigo-50 px-3 text-sm outline-none cursor-pointer focus:border-indigo-400"
+                className="h-9 w-full cursor-pointer rounded-md border border-transparent bg-indigo-50 px-3 text-sm outline-none focus:border-indigo-400"
               >
-                {" "}
                 <option value="all">Todos los eventos</option>
                 {activities.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -485,7 +530,7 @@ function TodayContent() {
               </select>
             </label>
             <label>
-              <span className="mb-1 block text-[11px] font-semibold cursor-pointer text-slate-600">
+              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
                 Estado
               </span>
               <select
@@ -493,7 +538,7 @@ function TodayContent() {
                 onChange={(e) =>
                   setStatusFilter(e.target.value as "all" | TaskStatus)
                 }
-                className="h-9 w-full rounded-md border border-transparent bg-indigo-50 px-3 text-sm outline-none cursor-pointer focus:border-indigo-400"
+                className="h-9 w-full cursor-pointer rounded-md border border-transparent bg-indigo-50 px-3 text-sm outline-none focus:border-indigo-400"
               >
                 <option value="all">Todos los estados</option>
                 {Object.entries(labels)
@@ -511,13 +556,14 @@ function TodayContent() {
               disabled={
                 !search && eventFilter === "all" && statusFilter === "all"
               }
-              className="h-9 whitespace-nowrap rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition cursor-pointer hover:bg-slate-50 disabled:opacity-50"
+              className="h-9 cursor-pointer whitespace-nowrap rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
             >
               <Filter className="mr-1 inline h-3.5 w-3.5" />
               Limpiar filtros
             </button>
           </div>
         </section>
+
         {isLoading && (
           <p className="text-sm text-slate-500">Cargando subtareas...</p>
         )}
@@ -573,6 +619,7 @@ function TodayContent() {
             <Group title="Próximas" tasks={upcoming} actions={actions} />
           </div>
         )}
+
         <RescheduleModal
           task={selected}
           open={!!selected}
@@ -585,10 +632,18 @@ function TodayContent() {
           onOpenChange={(open) => !open && setPostpone(null)}
           onSuccess={() => setMessage("Subtarea pospuesta correctamente")}
         />
+        <CompleteTaskModal
+          task={completion}
+          open={completionOpen}
+          onOpenChange={(open) => {
+            setCompletionOpen(open);
+            if (!open && !completionInProgress.current) setCompletion(null);
+          }}
+          onSave={saveCompletion}
+        />
       </main>
     </div>
   );
-}
 
 function Metric({
   tone,

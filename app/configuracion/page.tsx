@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/axios";
 import Sidebar from "@/components/ui/Sidebar";
 
 export default function SettingsPage() {
+  const queryClient = useQueryClient();
   const [value, setValue] = useState("6.00");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -22,11 +24,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, []);
+    void Promise.resolve().then(load);
+  }, [load]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -40,11 +42,15 @@ export default function SettingsPage() {
     setMessage("");
     try {
       await apiClient.patch("/auth/profile/", { daily_hour_limit: hours });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setMessage("Capacidad diaria actualizada.");
-    } catch (requestError: any) {
+    } catch (requestError: unknown) {
+      const messages = (requestError as { response?: { data?: { daily_hour_limit?: unknown } } })
+        .response?.data?.daily_hour_limit;
       setError(
-        requestError?.response?.data?.daily_hour_limit?.[0] ??
-          "No se pudo actualizar la capacidad diaria.",
+        Array.isArray(messages) && typeof messages[0] === "string"
+          ? messages[0]
+          : "No se pudo actualizar la capacidad diaria.",
       );
     } finally {
       setSaving(false);

@@ -13,7 +13,7 @@ import apiClient from "@/lib/axios";
 import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
 
 // Endpoint con las horas ya programadas del usuario en una fecha.
-const DAILY_LOAD_ENDPOINT = "/dashboard/daily-load/";
+const DAILY_LOAD_ENDPOINT = "/dashboard/load/";
 
 /*
  * ============================================================================
