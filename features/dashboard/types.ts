@@ -9,7 +9,9 @@ export interface TodayTasksSummary {
 
 export interface DailyLoad {
   date: string;          // YYYY-MM-DD
-  task_count: number;
-  completed_count: number;
-  load_percentage: number;  // 0–100, calculado por el backend
+  daily_hour_limit: string | number;
+  total_hours_scheduled: string | number;
+  capacity_remaining: string | number;
+  is_overloaded: boolean;
+  tasks: Task[];
 }

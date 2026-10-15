@@ -2,128 +2,221 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CircleHelp } from "lucide-react";
+import {
+  Ban,
+  CalendarDays,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  CircleHelp,
+  Clock3,
+  Filter,
+  Pencil,
+  Search,
+  TimerReset,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import Sidebar from "@/components/ui/Sidebar";
 import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
-import { useTasks } from "@/features/tasks/hooks/useTasks";
+import { PostponeModal } from "@/features/tasks/components/PostponeModal";
+import {
+  useTasks,
+  useUpdateTaskStatus,
+  useDeleteTask,
+} from "@/features/tasks/hooks/useTasks";
+import { useDailyLoad } from "@/features/dashboard/hooks/useDashboard";
 import type { Task, TaskStatus } from "@/features/tasks/types";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 
-const STATUS_LABELS: Record<TaskStatus, string> = {
+const labels: Record<TaskStatus, string> = {
   pending: "Pendiente",
   in_progress: "En progreso",
   completed: "Completada",
   postponed: "Pospuesta",
   cancelled: "Cancelada",
 };
+const dateOnly = (value: string) => new Date(`${value}T00:00:00`);
+const sortTasks = (a: Task, b: Task) =>
+  dateOnly(a.scheduled_date).getTime() - dateOnly(b.scheduled_date).getTime() ||
+  Number(a.estimated_hours) - Number(b.estimated_hours);
 
-function dateAtLocalMidnight(value: string) {
-  return new Date(`${value}T00:00:00`);
+type Actions = {
+  reschedule: (task: Task) => void;
+  postpone: (task: Task) => void;
+  complete: (task: Task) => void;
+  remove: (task: Task) => void;
+  edit: (task: Task) => void;
+};
+function TaskCard({
+  task,
+  urgency,
+  actions,
+}: {
+  task: Task;
+  urgency?: "overdue" | "today";
+  actions: Actions;
+}) {
+  const tint =
+    urgency === "overdue"
+      ? "border-red-100 bg-[#fff1f3]"
+      : urgency === "today"
+        ? "border-amber-200 bg-[#fff8f1]"
+        : "border-slate-100 bg-white";
+  return (
+    <li
+      className={`flex flex-col gap-3 rounded-xl border px-3 py-3 shadow-sm transition hover:shadow-md md:flex-row md:items-center md:justify-between ${tint}`}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${task.status === "completed" ? "bg-emerald-700 text-white" : urgency === "overdue" ? "border border-red-300 bg-red-100 text-red-600" : "border-2 border-slate-300 bg-white"}`}
+          title={urgency === "overdue" ? "Tarea vencida" : labels[task.status]}
+        >
+          {task.status === "completed" ? (
+            <Check className="h-4 w-4" />
+          ) : urgency === "overdue" ? (
+            <Ban className="h-4 w-4" />
+          ) : null}
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-sm font-semibold text-slate-900">
+              {task.title}
+            </h3>
+            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+              {task.event_title ?? "Sin evento"}
+            </span>
+            {urgency && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${urgency === "overdue" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}
+              >
+                {urgency === "overdue" ? "Vencida" : "Para hoy"}
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 tabular-nums">
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {task.scheduled_date}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Clock3 className="h-3.5 w-3.5" />
+              {task.estimated_hours} h estimadas
+            </span>
+            <span>Estado: {labels[task.status]}</span>
+          </div>
+          {task.notes && (
+            <details className="mt-1 text-xs text-slate-600">
+              <summary className="cursor-pointer font-medium">Ver nota</summary>
+              <p>{task.notes}</p>
+            </details>
+          )}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        <button
+          type="button"
+          aria-label={`Reprogramar ${task.title}`}
+          title="Reprogramar"
+          onClick={() => actions.reschedule(task)}
+          className="inline-flex items-center gap-1 rounded-lg border border-indigo-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50 focus:outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Reprogramar
+        </button>
+        {task.status !== "completed" && (
+          <button
+            type="button"
+            aria-label={`Posponer ${task.title}`}
+            title="Posponer"
+            onClick={() => actions.postpone(task)}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500"
+          >
+            <TimerReset className="h-4 w-4" />
+            Posponer
+          </button>
+        )}
+        {urgency === "today" && task.status !== "completed" && (
+          <button
+            type="button"
+            aria-label={`Completar ${task.title}`}
+            title="Completar"
+            onClick={() => actions.complete(task)}
+            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 cursor-pointer focus:ring-indigo-500"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Completar
+          </button>
+        )}
+        {urgency !== "today" && (
+          <button
+            type="button"
+            aria-label={`Eliminar ${task.title}`}
+            title="Eliminar"
+            onClick={() => actions.remove(task)}
+            className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 focus:outline-none cursor-pointer focus:ring-2 focus:ring-red-500"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={`Editar ${task.title}`}
+          title="Editar subtarea"
+          onClick={() => actions.edit(task)}
+          className="rounded-lg p-2 text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-700 focus:outline-none focus:ring-2 cursor-pointer focus:ring-indigo-500"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+      </div>
+    </li>
+  );
 }
 
-function compareTasks(first: Task, second: Task) {
-  const dateDifference =
-    dateAtLocalMidnight(first.scheduled_date).getTime() -
-    dateAtLocalMidnight(second.scheduled_date).getTime();
-
-  if (dateDifference !== 0) return dateDifference;
-
-  return Number(first.estimated_hours) - Number(second.estimated_hours);
-}
-
-function TaskGroup({
+function Group({
   title,
   tasks,
-  onReschedule,
   urgency,
+  actions,
 }: {
   title: string;
   tasks: Task[];
-  onReschedule: (task: Task) => void;
   urgency?: "overdue" | "today";
+  actions: Actions;
 }) {
-  const emphasis =
+  const color =
     urgency === "overdue"
-      ? "border-red-200"
+      ? "bg-red-600"
       : urgency === "today"
-        ? "border-amber-200"
-        : "border-gray-200";
-
+        ? "bg-amber-400"
+        : "bg-indigo-600";
   return (
-    <section className="space-y-3" aria-labelledby={`group-${title}`}>
-      <h2 id={`group-${title}`} className="text-lg font-bold text-gray-900">
-        {title}
-      </h2>
-
-      {tasks.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-4 text-sm text-gray-500">
-          No hay subtareas en este grupo.
-        </p>
-      ) : (
-        <ul className="space-y-3">
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className={`h-3 w-3 rounded-full ${color}`} />
+        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        <span className="text-xs text-slate-500">{tasks.length}</span>
+      </div>
+      {tasks.length ? (
+        <ul className="space-y-2">
           {tasks.map((task) => (
-            <li
+            <TaskCard
               key={task.id}
-              className={`flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${emphasis}`}
-            >
-              <div className="space-y-1">
-                <p className="font-semibold text-gray-900">{task.title}</p>
-
-                <p className="text-sm text-gray-500">
-                  Evento: {task.event_title ?? "Sin evento"}
-                </p>
-
-                <p className="text-sm text-gray-500">
-                  Fecha programada: {task.scheduled_date} || Horas estimadas:{" "}
-                  {task.estimated_hours}
-                </p>
-
-                <p className="text-sm text-gray-600">
-                  Estado: {STATUS_LABELS[task.status]}
-                </p>
-                {task.notes && (
-                  <details className="text-sm text-gray-500">
-                    <summary className="cursor-pointer font-medium">
-                      Ver nota
-                    </summary>
-                    <p className="mt-1">{task.notes}</p>
-                  </details>
-                )}
-
-                {urgency && (
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      urgency === "overdue"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {urgency === "overdue"
-                      ? "Vencida: requiere atención"
-                      : "Para hoy: requiere atención"}
-                  </span>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onReschedule(task)}
-                className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Reprogramar
-              </button>
-            </li>
+              task={task}
+              urgency={urgency}
+              actions={actions}
+            />
           ))}
         </ul>
+      ) : (
+        <p className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+          No hay subtareas en este grupo.
+        </p>
       )}
     </section>
   );
 }
 
-/**
- * Ruta protegida.
- * Primero verifica la autenticación.
- */
 export default function TodayPage() {
   return (
     <ProtectedRoute>
@@ -131,280 +224,399 @@ export default function TodayPage() {
     </ProtectedRoute>
   );
 }
-
-/**
- * Contenido de /hoy.
- * Solo se monta cuando ProtectedRoute confirma
- * que el usuario está autenticado.
- */
 function TodayContent() {
   const { data, isLoading, isError, refetch } = useTasks();
-
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [activityFilter, setActivityFilter] = useState("all");
+  const tasks = useMemo(
+    () => (Array.isArray(data) ? data : (data?.results ?? [])),
+    [data],
+  );
+  const { data: load } = useDailyLoad();
+  const statusMutation = useUpdateTaskStatus();
+  const deleteMutation = useDeleteTask();
+  const [selected, setSelected] = useState<Task | null>(null);
+  const [postpone, setPostpone] = useState<Task | null>(null);
+  const [optimistic, setOptimistic] = useState<Record<number, TaskStatus>>({});
+  const [search, setSearch] = useState("");
+  const [eventFilter, setEventFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TaskStatus>("all");
-  const [showOrderingInfo, setShowOrderingInfo] = useState(false);
-
-  const tasks = Array.isArray(data) ? data : (data?.results ?? []);
-
+  const [ordering, setOrdering] = useState(false);
+  const [message, setMessage] = useState("");
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
+  const currentTasks = tasks.map((task) =>
+    optimistic[task.id] ? { ...task, status: optimistic[task.id] } : task,
+  );
+  const active = currentTasks.filter(
+    (task) =>
+      task.status !== "completed" || optimistic[task.id] === "completed",
+  );
   const activities = useMemo(
     () =>
       Array.from(
         new Map(
           tasks.map((task) => [
             String(task.event),
-            {
-              id: String(task.event),
-              title: task.event_title ?? "Sin actividad",
-              course: task.event_course ?? "",
-            },
+            { id: String(task.event), title: task.event_title ?? "Sin evento" },
           ]),
         ).values(),
       ),
     [tasks],
   );
-
-  const hasFilters = activityFilter !== "all" || statusFilter !== "all";
-
-  const filteredTasks = tasks
-    .filter((task) => task.status !== "completed")
+  const matches = active
+    .filter((task) =>
+      `${task.title} ${task.event_title ?? ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+    )
     .filter(
-      (task) =>
-        activityFilter === "all" || String(task.event) === activityFilter,
+      (task) => eventFilter === "all" || String(task.event) === eventFilter,
     )
     .filter((task) => statusFilter === "all" || task.status === statusFilter);
-
-  const overdue = filteredTasks
-    .filter((task) => dateAtLocalMidnight(task.scheduled_date) < today)
-    .sort(compareTasks);
-
-  const forToday = filteredTasks
+  const overdue = matches
+    .filter((task) => dateOnly(task.scheduled_date) < today)
+    .sort(sortTasks);
+  const todayTasks = matches
+    .filter(
+      (task) => dateOnly(task.scheduled_date).getTime() === today.getTime(),
+    )
+    .sort(sortTasks);
+  const upcoming = matches
+    .filter((task) => dateOnly(task.scheduled_date) > today)
+    .sort(sortTasks);
+  const todayHours = active
     .filter(
       (task) =>
-        dateAtLocalMidnight(task.scheduled_date).getTime() === today.getTime(),
+        dateOnly(task.scheduled_date).getTime() === today.getTime() &&
+        task.status !== "completed",
     )
-    .sort(compareTasks);
-
-  const upcoming = filteredTasks
-    .filter((task) => dateAtLocalMidnight(task.scheduled_date) > today)
-    .sort(compareTasks);
-
-  const clearFilters = () => {
-    setActivityFilter("all");
+    .reduce((sum, task) => sum + Number(task.estimated_hours), 0);
+  const dailyLimit = Number(load?.daily_hour_limit ?? 0);
+  const reportedHours = Number(load?.total_hours_scheduled ?? todayHours);
+  const percent =
+    dailyLimit > 0
+      ? Math.min(100, Math.max(0, (reportedHours / dailyLimit) * 100))
+      : 0;
+  const remainingHours =
+    dailyLimit > 0 ? Math.max(0, dailyLimit - reportedHours) : 0;
+  const clear = () => {
+    setSearch("");
+    setEventFilter("all");
     setStatusFilter("all");
   };
-
+  const complete = (task: Task) => {
+    setOptimistic((prev) => ({ ...prev, [task.id]: "completed" }));
+    setMessage("Subtarea marcada como completada");
+    window.setTimeout(async () => {
+      try {
+        await statusMutation.mutateAsync({ id: task.id, status: "completed" });
+        setOptimistic((prev) => {
+          const next = { ...prev };
+          delete next[task.id];
+          return next;
+        });
+      } catch {
+        setOptimistic((prev) => {
+          const next = { ...prev };
+          delete next[task.id];
+          return next;
+        });
+        setMessage("No se pudo completar la subtarea. Inténtalo nuevamente.");
+      }
+    }, 1200);
+  };
+  const remove = async (task: Task) => {
+    if (!window.confirm(`¿Eliminar “${task.title}”?`)) return;
+    try {
+      await deleteMutation.mutateAsync(task.id);
+      setMessage("Subtarea eliminada");
+    } catch {
+      setMessage("No se pudo eliminar la subtarea.");
+    }
+  };
+  const actions: Actions = {
+    reschedule: setSelected,
+    postpone: setPostpone,
+    complete,
+    remove,
+    edit: (task) => {
+      if (task.event) window.location.href = `/actividad/${task.event}`;
+    },
+  };
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#faf8ff] text-[#131b2e]">
       <Sidebar />
-
-      <main className="ml-64 min-h-screen p-8">
-        <div className="w-full space-y-8">
+      <main className="min-h-screen px-4 pb-12 pt-6 sm:px-6 lg:ml-64 lg:px-8">
+        <header className="mb-6 flex items-end justify-between gap-4 border-b border-slate-200 pb-5">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Hoy</h1>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Tus subtareas se organizan según su fecha programada.
-            </p>
-          </div>
-
-          {/* Información sobre el ordenamiento */}
-          {/* CAMBIO: Se agregó inline-block para acoplar el contenedor al tamaño del botón */}
-          <div className="relative inline-block shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowOrderingInfo((previous) => !previous)}
-              onBlur={() => setShowOrderingInfo(false)}
-              className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md"
-              aria-expanded={showOrderingInfo}
-              aria-describedby="ordering-tooltip"
-            >
-              <CircleHelp className="h-5 w-5" />
-
-              <span>¿Cómo se ordena?</span>
-            </button>
-
-            {showOrderingInfo && (
-              <div
-                id="ordering-tooltip"
-                role="tooltip"
-                /* CAMBIO: Se cambió right-0 por left-0 para que despliegue hacia la derecha */
-                className="absolute left-0 top-9 z-50 w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-5 shadow-xl ring-1 ring-gray-200"
-              >
-                <h2 className="text-base font-bold text-gray-900">
-                  ¿Cómo se ordena?
-                </h2>
-
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Las tareas se agrupan por prioridad temporal (
-                  <span className="font-semibold text-gray-800">
-                    Vencidas, Para hoy y Próximas
-                  </span>
-                  ). Dentro de cada grupo, se ordenan cronológicamente por la
-                  fecha programada más cercana para facilitarte la planificación
-                  diaria.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {successMessage && (
-            <p
-              className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800"
-              role="status"
-              aria-live="polite"
-            >
-              {successMessage}
-            </p>
-          )}
-
-          {isLoading && (
-            <p className="text-sm text-gray-500">Cargando subtareas...</p>
-          )}
-
-          {isError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              No se pudieron cargar las subtareas.{" "}
+            <p className="text-sm font-semibold">Panel de Operaciones</p>
+            <h1 className="mt-8 text-3xl font-bold sm:text-4xl">
+              Hoy — Centro de Control Diario
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Monitoreo y ejecución de subtareas logísticas priorizadas
+              automáticamente{" "}
               <button
                 type="button"
-                onClick={() => refetch()}
-                className="font-semibold underline"
+                onClick={() => setOrdering((v) => !v)}
+                className="ml-2 inline-flex items-center gap-1 font-semibold cursor-pointer text-indigo-700 underline"
               >
-                Reintentar
+                <CircleHelp className="h-4 w-4" />
+                ¿Cómo se ordena?
               </button>
-            </div>
-          )}
-
-          {!isLoading && !isError && tasks.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
-              <p className="text-gray-600">
-                Aún no hay subtareas. Crea primero un evento para planificarlas.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden rounded-full bg-indigo-100 px-3 py-1.5 text-xs font-semibold sm:inline-flex">
+              ●{" "}
+              {new Intl.DateTimeFormat("es-CO", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              }).format(new Date())}
+            </span>
+          </div>
+        </header>
+        {ordering && (
+          <div className="mb-4 rounded-xl border border-indigo-100 bg-white p-3 text-sm text-slate-600 shadow-sm">
+            Vencidas: más antigua a más reciente. Para hoy y próximas: fecha y,
+            en empate, menor cantidad de horas estimadas.
+          </div>
+        )}
+        <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric
+            tone="red"
+            label="ATENCIÓN CRÍTICA"
+            value={overdue.length}
+            detail="subtareas vencidas"
+            icon={<TriangleAlert className="h-4 w-4" />}
+          />
+          <Metric
+            tone="amber"
+            label="COMPROMISOS DE HOY"
+            value={todayTasks.length}
+            detail="en agenda"
+            icon={<Clock3 className="h-4 w-4" />}
+          />
+          <Metric
+            tone="slate"
+            label="EN ESPERA"
+            value={upcoming.length}
+            detail="próximas subtareas"
+            icon={<CalendarDays className="h-4 w-4" />}
+          />
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase text-indigo-700">
+                CARGA VS CAPACIDAD
               </p>
-
-              <Link
-                href="/actividad"
-                className="mt-4 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              <span
+                className={`rounded-full px-2 py-1 text-[11px] font-semibold ${load?.is_overloaded ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}
               >
-                Crear evento
-              </Link>
+                {load?.is_overloaded
+                  ? "Excedida"
+                  : percent >= 70
+                    ? "Moderada"
+                    : "Saludable"}
+              </span>
             </div>
-          )}
-
-          {!isLoading && !isError && tasks.length > 0 && (
-            <>
-              <section
-                className="rounded-xl border border-gray-200 bg-white p-4"
-                aria-label="Filtros de subtareas"
+            <p className="mt-3 text-2xl font-bold tabular-nums">
+              {reportedHours.toFixed(1)}{" "}
+              <span className="text-sm font-normal text-slate-500">
+                h / {dailyLimit > 0 ? dailyLimit.toFixed(1) : "—"} h límite
+                diario
+              </span>
+            </p>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-indigo-100">
+              <div
+                className={`h-full rounded-full transition-all ${load?.is_overloaded ? "bg-red-600" : "bg-emerald-700"}`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              {dailyLimit > 0
+                ? `Restan ${remainingHours.toFixed(1)} h disponibles hoy`
+                : "Límite diario no disponible"}
+            </p>
+          </div>
+        </section>
+        {message && (
+          <p
+            role="status"
+            className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          >
+            {message}
+          </p>
+        )}
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
+                Buscar subtareas
+              </span>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar subtarea logística..."
+                  className="h-9 w-full rounded-md border border-transparent bg-indigo-50 pl-9 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            </label>
+            <label>
+              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
+                Actividad o Evento
+              </span>
+              <select
+                value={eventFilter}
+                onChange={(e) => setEventFilter(e.target.value)}
+                className="h-9 w-full rounded-md border border-transparent bg-indigo-50 px-3 text-sm outline-none cursor-pointer focus:border-indigo-400"
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                  <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-gray-700">
-                    Actividad o Evento
-                    <select
-                      value={activityFilter}
-                      onChange={(event) =>
-                        setActivityFilter(event.target.value)
-                      }
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="all">Todos los eventos</option>
-
-                      {activities.map((activity) => (
-                        <option key={activity.id} value={activity.id}>
-                          {activity.title}
-                          {activity.course ? ` — ${activity.course}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-gray-700">
-                    Estado
-                    <select
-                      value={statusFilter}
-                      onChange={(event) =>
-                        setStatusFilter(
-                          event.target.value as "all" | TaskStatus,
-                        )
-                      }
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="all">Todos los estados</option>
-
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    disabled={!hasFilters}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-              </section>
-
-              {filteredTasks.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
-                  <p className="text-gray-600">
-                    No hay subtareas para estos filtros
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="mt-4 rounded-lg border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <TaskGroup
-                    title="Vencidas"
-                    tasks={overdue}
-                    urgency="overdue"
-                    onReschedule={setSelectedTask}
-                  />
-
-                  <TaskGroup
-                    title="Para hoy"
-                    tasks={forToday}
-                    urgency="today"
-                    onReschedule={setSelectedTask}
-                  />
-
-                  <TaskGroup
-                    title="Próximas"
-                    tasks={upcoming}
-                    onReschedule={setSelectedTask}
-                  />
-                </>
-              )}
-            </>
-          )}
-        </div>
+                {" "}
+                <option value="all">Todos los eventos</option>
+                {activities.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="mb-1 block text-[11px] font-semibold cursor-pointer text-slate-600">
+                Estado
+              </span>
+              <select
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as "all" | TaskStatus)
+                }
+                className="h-9 w-full rounded-md border border-transparent bg-indigo-50 px-3 text-sm outline-none cursor-pointer focus:border-indigo-400"
+              >
+                <option value="all">Todos los estados</option>
+                {Object.entries(labels)
+                  .filter(([key]) => key !== "completed")
+                  .map(([key, value]) => (
+                    <option key={key} value={key}>
+                      {value}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={clear}
+              disabled={
+                !search && eventFilter === "all" && statusFilter === "all"
+              }
+              className="h-9 whitespace-nowrap rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition cursor-pointer hover:bg-slate-50 disabled:opacity-50"
+            >
+              <Filter className="mr-1 inline h-3.5 w-3.5" />
+              Limpiar filtros
+            </button>
+          </div>
+        </section>
+        {isLoading && (
+          <p className="text-sm text-slate-500">Cargando subtareas...</p>
+        )}
+        {isError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            No se pudieron cargar las subtareas.{" "}
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="font-semibold underline"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+        {!isLoading && !isError && tasks.length === 0 && (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            Aún no hay subtareas.{" "}
+            <Link
+              href="/actividad"
+              className="font-semibold text-indigo-700 underline"
+            >
+              Crear evento
+            </Link>
+          </div>
+        )}
+        {!isLoading && !isError && tasks.length > 0 && !matches.length && (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-600">
+            No hay subtareas para estos filtros.{" "}
+            <button
+              type="button"
+              onClick={clear}
+              className="ml-2 font-semibold text-indigo-700 underline"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        )}
+        {matches.length > 0 && (
+          <div className="space-y-8">
+            <Group
+              title="Vencidas"
+              tasks={overdue}
+              urgency="overdue"
+              actions={actions}
+            />
+            <Group
+              title="Para Hoy"
+              tasks={todayTasks}
+              urgency="today"
+              actions={actions}
+            />
+            <Group title="Próximas" tasks={upcoming} actions={actions} />
+          </div>
+        )}
+        <RescheduleModal
+          task={selected}
+          open={!!selected}
+          onOpenChange={(open) => !open && setSelected(null)}
+          onSuccess={() => setMessage("Fecha actualizada correctamente")}
+        />
+        <PostponeModal
+          task={postpone}
+          open={!!postpone}
+          onOpenChange={(open) => !open && setPostpone(null)}
+          onSuccess={() => setMessage("Subtarea pospuesta correctamente")}
+        />
       </main>
+    </div>
+  );
+}
 
-      <RescheduleModal
-        key={`${selectedTask?.id ?? "none"}-${!!selectedTask}`}
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
-        onSuccess={() => {
-          setSuccessMessage("Fecha actualizada");
-          refetch();
-        }}
-      />
+function Metric({
+  tone,
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  tone: "red" | "amber" | "slate";
+  label: string;
+  value: number;
+  detail: string;
+  icon: React.ReactNode;
+}) {
+  const colors =
+    tone === "red"
+      ? "border-red-100 bg-red-50 text-red-700"
+      : tone === "amber"
+        ? "border-amber-100 bg-amber-50 text-amber-800"
+        : "border-slate-200 bg-white text-slate-700";
+  return (
+    <div className={`rounded-xl border p-4 shadow-sm ${colors}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase">{label}</p>
+        <span className="rounded-lg bg-white/70 p-2">{icon}</span>
+      </div>
+      <p className="mt-3 text-3xl font-bold tabular-nums">{value}</p>
+      <p className="text-xs">{detail}</p>
     </div>
   );
 }
