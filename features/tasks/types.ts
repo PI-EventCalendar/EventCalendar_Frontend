@@ -29,6 +29,7 @@ export interface Task {
   scheduled_date: string; // YYYY-MM-DD
   estimated_hours: string | number; // DecimalField
   notes?: string; // blank=True
+  completion_note?: string | null;
 }
 
 export interface CreateTaskPayload {
@@ -40,6 +41,7 @@ export interface CreateTaskPayload {
   event?: number | null;
   category?: number | null;
   notes?: string;
+  completion_note?: string | null;
   scheduled_date?: string;
   estimated_hours?: string | number;
 }
