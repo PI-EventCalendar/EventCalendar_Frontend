@@ -5,6 +5,7 @@ import {
   createTask,
   updateTask,
   updateTaskStatus,
+  postponeTask,
   deleteTask,
 } from "../services/taskService";
 import { getCategories, createCategory } from "../services/taskCategoryService";
@@ -38,9 +39,11 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateTaskPayload) => createTask(payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
@@ -49,10 +52,12 @@ export function useUpdateTask(id: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: UpdateTaskPayload) => updateTask(id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: taskQueryKey(id) });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: taskQueryKey(id) }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
@@ -60,11 +65,29 @@ export function useUpdateTask(id: number) {
 export function useUpdateTaskStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: number; status: TaskStatus }) =>
-      updateTaskStatus(id, status),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    mutationFn: ({ id, status, completion_note }: { id: number; status: TaskStatus; completion_note?: string | null }) =>
+      completion_note === undefined
+        ? updateTaskStatus(id, status)
+        : updateTask(id, { status, completion_note }),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+    },
+  });
+}
+
+export function usePostponeTask(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (note: string | null) => postponeTask(id, note),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: taskQueryKey(id) }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
@@ -73,9 +96,11 @@ export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => deleteTask(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
@@ -84,10 +109,12 @@ export function useRescheduleTask(id: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: ReschedulePayload) => rescheduleTask(id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
-      qc.invalidateQueries({ queryKey: taskQueryKey(id) });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: taskQueryKey(id) }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }
