@@ -3,12 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { Ban, CalendarDays, CalendarClock, Check, CheckCircle2, CircleHelp, Clock3, Filter, Pencil, Search, TimerReset, Trash2, TriangleAlert } from "lucide-react";
+import {
+  Ban,
+  CalendarDays,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  CircleHelp,
+  Clock3,
+  Filter,
+  Pencil,
+  Search,
+  TimerReset,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import Sidebar from "@/components/ui/Sidebar";
 import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
 import { PostponeModal } from "@/features/tasks/components/PostponeModal";
 import { CompleteTaskModal } from "@/features/tasks/components/CompleteTaskModal";
-import { useTasks, useUpdateTaskStatus, useDeleteTask } from "@/features/tasks/hooks/useTasks";
+import {
+  useTasks,
+  useUpdateTaskStatus,
+  useDeleteTask,
+} from "@/features/tasks/hooks/useTasks";
 import { useDailyLoad } from "@/features/dashboard/hooks/useDashboard";
 import type { Task, TaskStatus } from "@/features/tasks/types";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
@@ -25,7 +43,6 @@ const sortTasks = (a: Task, b: Task) =>
   dateOnly(a.scheduled_date).getTime() - dateOnly(b.scheduled_date).getTime() ||
   Number(a.estimated_hours) - Number(b.estimated_hours);
 
-<<<<<<< HEAD
 type Actions = {
   reschedule: (task: Task) => void;
   postpone: (task: Task) => void;
@@ -224,7 +241,7 @@ export default function TodayPage() {
   );
 }
 function TodayContent() {
-const router = useRouter();
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useTasks();
   const tasks = useMemo(
     () => (Array.isArray(data) ? data : (data?.results ?? [])),
@@ -644,6 +661,7 @@ const router = useRouter();
       </main>
     </div>
   );
+}
 
 function Metric({
   tone,
