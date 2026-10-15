@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import Link from "next/link";
 import Sidebar from "@/components/ui/Sidebar";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
 
 // ============================================================
 // TIPOS
@@ -29,12 +30,43 @@ interface Event {
   title: string;
   description: string;
   event_date: string;
+
+  // Estado guardado en el backend.
+  status: "pending" | "in_progress" | "completed";
+
   tasks: EventTask[];
 
   // Datos de progreso enviados por Django
   progress_percentage: number;
   total_tasks: number;
   completed_tasks: number;
+}
+
+// ============================================================
+// FUNCIONES AUXILIARES
+// ============================================================
+
+/**
+ * Las subtareas completadas o canceladas NO impiden finalizar el evento.
+ * (Misma regla que EventService.get_blocking_tasks en el backend.)
+ */
+function isTaskClosed(status: TaskStatus): boolean {
+  return status === "completed" || status === "cancelled";
+}
+
+/**
+ * Extrae el mensaje de error que envía Django:
+ * { "status": ["mensaje"] }  o  { "detail": "mensaje" }
+ */
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const data = (
+    error as { response?: { data?: Record<string, unknown> } } | null
+  )?.response?.data;
+
+  const raw = data?.status ?? data?.detail;
+  const first = Array.isArray(raw) ? raw[0] : raw;
+
+  return typeof first === "string" && first ? first : fallback;
 }
 
 // ============================================================
@@ -84,9 +116,19 @@ function EventDetailContent() {
     null,
   );
 
-  // Mensaje de éxito
-  const [rescheduleSuccess, setRescheduleSuccess] = useState("");
-  const [statusError, setStatusError] = useState("");
+  // true mientras se envía la petición de finalizar el evento
+  const [isCompletingEvent, setIsCompletingEvent] = useState(false);
+
+  // Mensajes emergentes: desaparecen solos.
+  const { message: successMessage, show: showSuccessMessage } =
+    useAutoDismissMessage(3000);
+
+  const {
+    message: statusError,
+    show: showStatusError,
+    clear: clearStatusError,
+  } = useAutoDismissMessage(6000);
+
   const [postponeTaskId, setPostponeTaskId] = useState<number | null>(null);
 
   // ============================================================
@@ -142,7 +184,7 @@ function EventDetailContent() {
 
     try {
       setUpdatingTaskId(taskId);
-      setStatusError("");
+      clearStatusError();
 
       // ========================================================
       // DETERMINAR NUEVO ESTADO
@@ -208,15 +250,60 @@ function EventDetailContent() {
           completed_tasks: completedTasks,
           total_tasks: totalTasks,
           progress_percentage: progressPercentage,
+
+          // Si el evento estaba finalizado y una subtarea se reabre,
+          // el backend lo pasa a "En progreso". Lo reflejamos aquí.
+          status:
+            currentEvent.status === "completed" &&
+            !isTaskClosed(newStatus as TaskStatus)
+              ? "in_progress"
+              : currentEvent.status,
         };
       });
     } catch (error) {
       console.error("Error al actualizar la tarea:", error);
-      setStatusError(
+      showStatusError(
         "No fue posible actualizar la subtarea. Verifica tu conexión e inténtalo nuevamente.",
       );
     } finally {
       setUpdatingTaskId(null);
+    }
+  };
+
+  // ============================================================
+  // FINALIZAR EVENTO
+  // ============================================================
+
+  /**
+   * POST /api/v1/events/{id}/complete/
+   *
+   * El backend es quien valida: si quedan subtareas sin completar
+   * (las canceladas no cuentan) responde 400 con el mensaje que
+   * mostramos en el aviso emergente.
+   */
+  const handleCompleteEvent = async () => {
+    if (isCompletingEvent || !event) {
+      return;
+    }
+
+    try {
+      setIsCompletingEvent(true);
+      clearStatusError();
+
+      const response = await apiClient.post<Event>(
+        `/events/${eventId}/complete/`,
+      );
+
+      setEvent(response.data);
+      showSuccessMessage("Evento finalizado exitosamente.");
+    } catch (error) {
+      console.error("Error al finalizar el evento:", error);
+
+      showStatusError(
+        getApiErrorMessage(error, "No fue posible finalizar el evento."),
+      );
+    } finally {
+      setIsCompletingEvent(false);
     }
   };
 
@@ -261,6 +348,13 @@ function EventDetailContent() {
   const progressPercentage =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // El evento se puede finalizar cuando todas sus subtareas están
+  // completadas o canceladas.
+  const isEventCompleted = event.status === "completed";
+  const readyToComplete = event.tasks.every((task) =>
+    isTaskClosed(task.status),
+  );
+
   // ============================================================
   // INTERFAZ
   // ============================================================
@@ -268,6 +362,36 @@ function EventDetailContent() {
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900">
       <Sidebar />
+
+      {/* ======================================================
+          AVISOS EMERGENTES (desaparecen solos)
+      ====================================================== */}
+
+      {successMessage && (
+        <div
+          className="fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl border border-green-200 bg-white px-5 py-4 shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="material-symbols-outlined text-green-600">
+            check_circle
+          </span>
+          <p className="text-sm font-semibold text-gray-900">
+            {successMessage}
+          </p>
+        </div>
+      )}
+
+      {statusError && (
+        <div
+          className="fixed right-6 top-6 z-[100] flex max-w-sm items-start gap-3 rounded-xl border border-red-200 bg-white px-5 py-4 shadow-lg"
+          role="alert"
+        >
+          <span className="material-symbols-outlined text-red-600">error</span>
+          <p className="text-sm font-medium text-red-700">{statusError}</p>
+        </div>
+      )}
+
       <main className="min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-10">
         <div className="mx-auto max-w-6xl space-y-6">
           <nav
@@ -300,12 +424,46 @@ function EventDetailContent() {
                     "Organiza y da seguimiento a las subtareas del evento."}
                 </p>
               </div>
-              <Link
-                href="/actividad"
-                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                + Añadir gestión logística
-              </Link>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* FINALIZAR EVENTO */}
+                {isEventCompleted ? (
+                  <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2.5 text-sm font-semibold text-emerald-800">
+                    <span className="material-symbols-outlined text-[18px]">
+                      verified
+                    </span>
+                    Evento finalizado
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCompleteEvent}
+                    disabled={isCompletingEvent}
+                    title={
+                      readyToComplete
+                        ? "Todas las subtareas están completadas"
+                        : "Completa las subtareas para finalizar el evento"
+                    }
+                    className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      readyToComplete
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500"
+                        : "bg-slate-200 text-slate-600 hover:bg-slate-300 focus:ring-slate-400"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {readyToComplete ? "task_alt" : "lock"}
+                    </span>
+                    {isCompletingEvent ? "Finalizando..." : "Finalizar evento"}
+                  </button>
+                )}
+
+                <Link
+                  href="/actividad"
+                  className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  + Añadir gestión logística
+                </Link>
+              </div>
             </div>
             <div className="mt-6 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-3">
               <div>
@@ -338,20 +496,6 @@ function EventDetailContent() {
               </div>
             </div>
           </section>
-
-          {/* ======================================================
-          MENSAJE DE ÉXITO
-          ====================================================== */}
-
-          {rescheduleSuccess && (
-            <p
-              className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800"
-              role="status"
-              aria-live="polite"
-            >
-              {rescheduleSuccess}
-            </p>
-          )}
 
           {/* ======================================================
           BARRA DE PROGRESO
@@ -392,16 +536,22 @@ function EventDetailContent() {
                 Estado del plan
               </p>
               <p className="mt-3 text-2xl font-bold text-slate-900">
-                {totalTasks === 0
-                  ? "Sin subtareas"
-                  : progressPercentage === 100
-                    ? "Completado"
-                    : "En preparación"}
+                {isEventCompleted
+                  ? "Finalizado"
+                  : totalTasks === 0
+                    ? "Sin subtareas"
+                    : readyToComplete
+                      ? "Listo para finalizar"
+                      : "En preparación"}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                {totalTasks === 0
-                  ? "Añade subtareas para comenzar a medir el avance."
-                  : `${totalTasks - completedTasks} subtarea${totalTasks - completedTasks === 1 ? "" : "s"} pendiente${totalTasks - completedTasks === 1 ? "" : "s"}.`}
+                {isEventCompleted
+                  ? "Todas las subtareas están cerradas. Si reabres una, el evento vuelve a En progreso."
+                  : totalTasks === 0
+                    ? "Añade subtareas para comenzar a medir el avance."
+                    : readyToComplete
+                      ? "Ya puedes finalizar el evento."
+                      : `${totalTasks - completedTasks} subtarea${totalTasks - completedTasks === 1 ? "" : "s"} pendiente${totalTasks - completedTasks === 1 ? "" : "s"}.`}
               </p>
             </div>
           </section>
@@ -438,7 +588,7 @@ function EventDetailContent() {
                 </p>
                 <Link
                   href="/actividad"
-                  className="mt-5 inline-flex rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white"
+                  className="mt-5 inline-flex cursor-pointer rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white"
                 >
                   Crear plan inicial
                 </Link>
@@ -459,7 +609,7 @@ function EventDetailContent() {
                             handleTaskStatusChange(task.id, task.status)
                           }
                           disabled={updatingTaskId === task.id}
-                          className="mt-1 h-5 w-5 rounded border-gray-300 text-indigo-600"
+                          className="mt-1 h-5 w-5 cursor-pointer rounded border-gray-300 text-indigo-600 disabled:cursor-not-allowed"
                         />
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -469,7 +619,7 @@ function EventDetailContent() {
                               {task.title}
                             </h3>
                             <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${task.status === "completed" ? "bg-emerald-100 text-emerald-700" : task.status === "postponed" ? "bg-amber-100 text-amber-700" : task.status === "in_progress" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-600"}`}
+                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${task.status === "completed" ? "bg-emerald-100 text-emerald-700" : task.status === "postponed" ? "bg-amber-100 text-amber-700" : task.status === "in_progress" ? "bg-sky-100 text-sky-700" : task.status === "cancelled" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}
                             >
                               {task.status === "completed"
                                 ? "Completada"
@@ -477,7 +627,9 @@ function EventDetailContent() {
                                   ? "Pospuesta"
                                   : task.status === "in_progress"
                                     ? "En progreso"
-                                    : "Pendiente"}
+                                    : task.status === "cancelled"
+                                      ? "Cancelada"
+                                      : "Pendiente"}
                             </span>
                           </div>
                           <p className="mt-2 text-sm text-slate-500">
@@ -499,7 +651,7 @@ function EventDetailContent() {
                         <button
                           type="button"
                           onClick={() => setTaskToReschedule(task)}
-                          className="rounded-xl bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="cursor-pointer rounded-xl bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           Reprogramar
                         </button>
@@ -507,7 +659,7 @@ function EventDetailContent() {
                           <button
                             type="button"
                             onClick={() => setPostponeTaskId(task.id)}
-                            className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="cursor-pointer rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                           >
                             Posponer
                           </button>
@@ -519,15 +671,6 @@ function EventDetailContent() {
               </div>
             )}
           </section>
-
-          {statusError && (
-            <p
-              className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-              role="alert"
-            >
-              {statusError}
-            </p>
-          )}
 
           {/* ======================================================
           MODAL DE REPROGRAMACIÓN
@@ -546,7 +689,7 @@ function EventDetailContent() {
             open={!!taskToReschedule}
             onOpenChange={(open) => !open && setTaskToReschedule(null)}
             onSuccess={() => {
-              setRescheduleSuccess("Fecha actualizada");
+              showSuccessMessage("Fecha actualizada");
 
               loadEvent();
             }}
