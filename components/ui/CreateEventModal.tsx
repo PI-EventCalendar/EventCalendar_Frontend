@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/CreateEventConflictModal";
 import apiClient from "@/lib/axios";
 import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
+import { useDailyLoad } from "@/features/dashboard/hooks/useDashboard";
 
 // Endpoint con las horas ya programadas del usuario en una fecha.
 const DAILY_LOAD_ENDPOINT = "/dashboard/load/";
@@ -90,7 +91,8 @@ interface CreateEventModalProps {
    * - Si retorna false: el modal sigue abierto (la página ya avisó).
    * - Si retorna true o no retorna nada: el modal se cierra.
    */
-  onSave: (event: CreatedEvent) => Promise<boolean | void>;
+  onSave: (event: CreatedEvent, conflictResolution?: boolean) => Promise<boolean | void>;
+  onResolutionSuccess?: (description: string) => void;
 
   // Evento cargado desde Django cuando estamos editando.
   eventToEdit?: EventToEdit | null;
@@ -166,6 +168,15 @@ function getSaveErrorMessage(error: unknown): string {
   );
 }
 
+function formatConflictDate(value: string): string {
+  return new Intl.DateTimeFormat("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
 /**
  * Valores iniciales del formulario a partir del evento que se edita.
  *
@@ -233,6 +244,7 @@ export default function CreateEventModal(props: CreateEventModalProps) {
 function CreateEventModalContent({
   onClose,
   onSave,
+  onResolutionSuccess,
   eventToEdit,
 }: CreateEventModalProps) {
   /*
@@ -262,25 +274,13 @@ function CreateEventModalContent({
   const [location, setLocation] = useState(eventToEdit?.location ?? "");
 
   // Límite de horas diarias del usuario (viene de su perfil).
-  const [dailyLimit, setDailyLimit] = useState(6);
+  const dailyCapacity = useDailyLoad(undefined, { refetchInterval: false });
+  const dailyLimit = Number(dailyCapacity.data?.daily_hour_limit ?? 0);
 
   // Horas ya programadas por día, sumando TODOS los eventos del usuario.
   const [globalDailyLoads, setGlobalDailyLoads] = useState<
     Record<string, number>
   >({});
-
-  /*
-   * Carga el límite diario del perfil al abrir el modal.
-   *
-   * El contenido solo se monta cuando el modal está abierto,
-   * por eso basta con ejecutarlo una vez al montar.
-   */
-  useEffect(() => {
-    void apiClient
-      .get("/auth/profile/")
-      .then(({ data }) => setDailyLimit(Number(data.daily_hour_limit ?? 6)))
-      .catch(() => setDailyLimit(6));
-  }, []);
 
   // Error al guardar o publicar: desaparece solo a los 3 s
   // (o antes, con la X del aviso).
@@ -401,7 +401,7 @@ function CreateEventModalContent({
 
       setGlobalDailyLoads(Object.fromEntries(entries));
     });
-  }, [planningDatesKey]);
+  }, [planningDatesKey, dailyLimit]);
 
   /*
    * ==========================================================================
@@ -567,7 +567,7 @@ function CreateEventModalContent({
   const originalTotals = (eventToEdit?.tasks ?? []).reduce<
     Record<string, number>
   >((totals, task) => {
-    if (["pending", "in_progress"].includes(task.status)) {
+    if (["pending", "in_progress", "postponed"].includes(task.status)) {
       totals[task.scheduled_date] =
         (totals[task.scheduled_date] ?? 0) + Number(task.estimated_hours);
     }
@@ -619,6 +619,14 @@ function CreateEventModalContent({
 
   const conflictTask =
     conflictTaskIndex >= 0 ? subtasks[conflictTaskIndex] : undefined;
+  const conflictPlannedLoads = conflict
+    ? subtasks.reduce<Record<string, number>>((totals, task, index) => {
+        if (index !== conflictTaskIndex && !["completed", "cancelled"].includes(task.status ?? "pending")) {
+          totals[task.date] = (totals[task.date] ?? 0) + Number(task.hours || 0);
+        }
+        return totals;
+      }, {})
+    : undefined;
 
   /**
    * Se ejecuta cuando el usuario confirma la nueva fecha y las horas
@@ -628,48 +636,37 @@ function CreateEventModalContent({
    * vuelve a presionar "Guardar y Publicar Evento" y el backend
    * valida otra vez.
    */
-  const handleResolveConflict = (
+  const handleResolveConflict = async (
     action: CreateEventConflictAction,
     payload: CreateEventConflictPayload,
-  ) => {
+  ): Promise<string> => {
     if (!conflict) {
-      return;
+      throw new Error("El conflicto ya no está disponible. Vuelve a intentarlo.");
     }
 
     const targetDate = conflict.target_date;
-
-    setSubtasks((currentSubtasks) => {
-      const index = findConflictTaskIndex(currentSubtasks, targetDate);
-
-      if (index === -1) {
-        return currentSubtasks;
-      }
-
-      const updatedSubtasks = [...currentSubtasks];
-
-      // MOVE_DATE: cambia la fecha. REDUCE_HOURS: cambia las horas.
-      if (action === "MOVE_DATE" && payload.newDate) {
-        updatedSubtasks[index] = {
-          ...updatedSubtasks[index],
-          date: payload.newDate,
-        };
-      }
-
-      if (action === "REDUCE_HOURS" && payload.newHours) {
-        updatedSubtasks[index] = {
-          ...updatedSubtasks[index],
-          hours: payload.newHours,
-        };
-      }
-
-      console.log("Subtarea modificada por conflicto:", updatedSubtasks[index]);
-
-      return updatedSubtasks;
-    });
-
-    setConflictResolved(true);
-    setConflict(null);
-    clearSaveError();
+    const index = findConflictTaskIndex(subtasks, targetDate);
+    if (index === -1) throw new Error("No se encontró la subtarea en conflicto.");
+    const updatedSubtasks = [...subtasks];
+    const previous = updatedSubtasks[index];
+    if (action === "MOVE_DATE" && payload.newDate) {
+      updatedSubtasks[index] = { ...previous, date: payload.newDate };
+    } else if (action === "REDUCE_HOURS" && payload.newHours !== undefined) {
+      updatedSubtasks[index] = { ...previous, hours: payload.newHours };
+    }
+    let saved: boolean | void;
+    try {
+      saved = await handlePublish(updatedSubtasks, true);
+    } catch (error) {
+      if (extractDailyOverloadConflict(error)) setSubtasks(updatedSubtasks);
+      throw error;
+    }
+    if (saved !== true) throw new Error("No se pudo guardar la solución del conflicto.");
+    setSubtasks(updatedSubtasks);
+    const next = updatedSubtasks[index];
+    return previous.date !== next.date
+      ? `Fecha actualizada: ${formatConflictDate(previous.date)} → ${formatConflictDate(next.date)}`
+      : `Duración ajustada: ${previous.hours} h → ${next.hours} h`;
   };
 
   /*
@@ -703,7 +700,10 @@ function CreateEventModalContent({
    * Si hay un conflicto de carga diaria (409), se abre
    * CreateEventConflictModal y este modal permanece abierto.
    */
-  const handlePublish = async () => {
+  const handlePublish = async (
+    tasksToSave: Subtask[] = subtasks,
+    isConflictResolution = false,
+  ): Promise<boolean | void> => {
     // Limpiamos el mensaje anterior.
     clearSaveError();
 
@@ -711,20 +711,20 @@ function CreateEventModalContent({
     const isValid = validateForm();
 
     if (!isValid) {
-      return;
+      return false;
     }
 
     // 2. Validar fechas de las subtareas
     const targetEventDate = eventDate.split("T")[0];
 
-    const invalidSubtask = subtasks.find((task) => task.date > targetEventDate);
+    const invalidSubtask = tasksToSave.find((task) => task.date > targetEventDate);
 
     if (invalidSubtask) {
       showSaveError(
         `No se puede guardar el evento: la subtarea "${invalidSubtask.name}" (${invalidSubtask.date}) supera la fecha del evento (${targetEventDate}). Modifícala o elimínala para continuar.`,
       );
 
-      return;
+      return false;
     }
 
     // 3. Construir payload
@@ -743,7 +743,7 @@ function CreateEventModalContent({
       // Django espera solamente YYYY-MM-DD
       event_date: targetEventDate,
 
-      tasks: subtasks.map((task) => ({
+      tasks: tasksToSave.map((task) => ({
         /*
          * Las subtareas existentes tienen ID positivo.
          * Las nuevas tienen ID negativo y NO se envía al backend.
@@ -760,7 +760,7 @@ function CreateEventModalContent({
         notes: task.notes,
       })),
 
-      total_tasks: subtasks.length,
+      total_tasks: tasksToSave.length,
 
       completed_tasks: 0,
     };
@@ -771,15 +771,16 @@ function CreateEventModalContent({
 
     // 5. Guardar (actividad/page.tsx hace el POST/PATCH)
     try {
-      const result = await onSave(newEvent);
+      const result = await onSave(newEvent, isConflictResolution);
 
       /*
        * false -> la página ya avisó del problema: el modal sigue abierto.
        * true / undefined -> todo salió bien: cerramos el modal.
        */
-      if (result !== false) {
+      if (result !== false && !isConflictResolution) {
         onClose();
       }
+      return isConflictResolution ? result !== false : undefined;
     } catch (error) {
       console.warn("Error al guardar el evento:", error);
 
@@ -792,10 +793,16 @@ function CreateEventModalContent({
 
       if (conflictData) {
         setConflict(conflictData);
+        if (isConflictResolution) {
+          setConflictResolved(true);
+          throw error;
+        }
+        setConflictResolved(false);
         return;
       }
 
       // Cualquier otro error: mensaje legible del backend.
+      if (isConflictResolution) throw error;
       showSaveError(getSaveErrorMessage(error));
     }
   };
@@ -1317,7 +1324,7 @@ function CreateEventModalContent({
                     </p>
 
                     <p className="text-xl font-bold text-gray-900">
-                      {dailyLimit.toFixed(1)} h / día
+                      {dailyLimit > 0 ? `${dailyLimit.toFixed(1)} h / día` : dailyCapacity.isLoading ? "Consultando…" : "Límite no disponible"}
                     </p>
 
                     <p className="mt-1 text-xs font-medium text-green-700">
@@ -1333,7 +1340,7 @@ function CreateEventModalContent({
                       </span>
 
                       <span>
-                        {busiestHours.toFixed(1)} / {dailyLimit.toFixed(1)} h
+                        {busiestHours.toFixed(1)} / {dailyLimit > 0 ? dailyLimit.toFixed(1) : "—"} h
                       </span>
                     </div>
 
@@ -1409,7 +1416,7 @@ function CreateEventModalContent({
               {/* GUARDAR Y PUBLICAR */}
               <button
                 type="button"
-                onClick={handlePublish}
+                onClick={() => void handlePublish()}
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md hover:bg-indigo-700"
               >
                 Guardar y Publicar Evento
@@ -1427,12 +1434,22 @@ function CreateEventModalContent({
       */}
       <CreateEventConflictModal
         conflict={conflict}
-        onClose={() => setConflict(null)}
+        onClose={() => { setConflict(null); setConflictResolved(false); }}
         onResolve={handleResolveConflict}
+        onResolved={(description) => {
+          onClose();
+          onResolutionSuccess?.(description);
+        }}
         stillOverloaded={conflictResolved}
         taskName={conflictTask?.name}
         taskHours={conflictTask?.hours}
+        additionalPlannedHours={conflict && conflictTaskIndex >= 0 ? subtasks.reduce((total, task, index) =>
+          index !== conflictTaskIndex && task.date === conflict.target_date && !["completed", "cancelled"].includes(task.status ?? "pending")
+            ? total + Number(task.hours || 0)
+            : total, 0) : 0}
+        excludeEventId={eventToEdit?.id}
         maxDate={eventDate ? eventDate.split("T")[0] : undefined}
+        plannedLoads={conflictPlannedLoads}
       />
     </>
   );

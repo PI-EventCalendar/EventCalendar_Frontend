@@ -641,7 +641,7 @@ function TodayContent() {
           task={selected}
           open={!!selected}
           onOpenChange={(open) => !open && setSelected(null)}
-          onSuccess={() => setMessage("Fecha actualizada correctamente")}
+          onSuccess={(description) => { if (!description) setMessage("Fecha actualizada correctamente"); }}
         />
         <PostponeModal
           task={postpone}

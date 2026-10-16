@@ -1,17 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock3, Pencil, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useDailyLoad } from "@/features/dashboard/hooks/useDashboard";
 
-/*
- * ============================================================================
- * TIPOS
- * ============================================================================
- */
-
-/**
- * Información que Django devuelve cuando una nueva subtarea
- * supera el límite diario de horas.
- */
 export interface CreateEventConflict {
   error: string;
   detail: string;
@@ -22,472 +17,194 @@ export interface CreateEventConflict {
   suggested_dates: string[];
 }
 
-/**
- * Acciones para resolver el conflicto (igual que ConflictModal,
- * pero sin "FORCE": el backend de creación no permite forzar).
- */
 export type CreateEventConflictAction = "MOVE_DATE" | "REDUCE_HOURS";
+export interface CreateEventConflictPayload { newDate?: string; newHours?: number }
 
-export interface CreateEventConflictPayload {
-  newDate?: string;
-  newHours?: number;
-}
-
-/*
- * ============================================================================
- * DETECTAR EL CONFLICTO DENTRO DE UN ERROR
- * ============================================================================
- */
-
-/**
- * Busca un DailyOverloadConflict dentro del error recibido.
- *
- * No depende del status 409 ni de axios, porque el interceptor
- * de apiClient puede cambiar la forma del error. Revisa:
- *
- *  1. error.response.data.detail  -> { detail: { error: ... } }
- *  2. error.response.data         -> { error: ... }  (caso normal)
- *  3. error.data
- *  4. error
- *
- * Retorna null si el error NO es un conflicto de carga diaria.
- */
-export function extractDailyOverloadConflict(
-  error: unknown,
-): CreateEventConflict | null {
-  const err = error as {
-    response?: { data?: { detail?: unknown } & Record<string, unknown> };
-    data?: unknown;
-  } | null;
-
-  const candidates: unknown[] = [
-    err?.response?.data?.detail,
-    err?.response?.data,
-    err?.data,
-    error,
-  ];
-
+export function extractDailyOverloadConflict(error: unknown): CreateEventConflict | null {
+  const err = error as { response?: { data?: { detail?: unknown } }; data?: unknown } | null;
+  const candidates = [err?.response?.data?.detail, err?.response?.data, err?.data, error];
   for (const candidate of candidates) {
-    if (
-      candidate &&
-      typeof candidate === "object" &&
-      (candidate as Record<string, unknown>).error === "DailyOverloadConflict"
-    ) {
-      const data = candidate as Partial<CreateEventConflict>;
-
-      return {
-        error: String(data.error),
-        detail: String(data.detail ?? ""),
-        target_date: String(data.target_date ?? ""),
-        current_hours: String(data.current_hours ?? ""),
-        attempted_hours: String(data.attempted_hours ?? ""),
-        daily_hour_limit: String(data.daily_hour_limit ?? ""),
-        // Django puede enviar [] cuando no hay fechas libres.
-        suggested_dates: Array.isArray(data.suggested_dates)
-          ? data.suggested_dates
-          : [],
-      };
-    }
+    if (!candidate || typeof candidate !== "object") continue;
+    const value = candidate as Partial<CreateEventConflict>;
+    if (value.error !== "DailyOverloadConflict") continue;
+    return {
+      error: String(value.error),
+      detail: String(value.detail ?? ""),
+      target_date: String(value.target_date ?? ""),
+      current_hours: String(value.current_hours ?? "0"),
+      attempted_hours: String(value.attempted_hours ?? "0"),
+      daily_hour_limit: String(value.daily_hour_limit ?? "0"),
+      suggested_dates: Array.isArray(value.suggested_dates) ? value.suggested_dates : [],
+    };
   }
-
   return null;
 }
 
-/*
- * ============================================================================
- * PROPS
- * ============================================================================
- */
-
-interface CreateEventConflictModalProps {
-  /** Conflicto enviado por Django. Si es null, el modal no se muestra. */
+interface Props {
   conflict: CreateEventConflict | null;
-
-  /** El usuario cierra el modal sin resolver el conflicto. */
   onClose: () => void;
-
-  /** El usuario confirma una solución (mover fecha o reducir horas). */
-  onResolve: (
-    action: CreateEventConflictAction,
-    payload: CreateEventConflictPayload,
-  ) => void;
-
-  /** Nombre de la subtarea que produjo el conflicto (informativo). */
+  onConflictUpdate?: (conflict: CreateEventConflict) => void;
+  onResolve: (action: CreateEventConflictAction, payload: CreateEventConflictPayload) => Promise<string>;
+  onResolved?: (description: string) => void;
   taskName?: string;
-
-  /** Horas actuales de esa subtarea (para calcular el máximo permitido). */
   taskHours?: number;
-
-  /** Fecha del evento (YYYY-MM-DD): la subtarea no puede ir después. */
+  additionalPlannedHours?: number;
+  excludeTaskId?: number;
+  excludeEventId?: number;
   maxDate?: string;
-
-  /** true si el usuario ya corrigió una vez y el backend volvió a rechazar. */
+  plannedLoads?: Record<string, number>;
   stillOverloaded?: boolean;
 }
 
-/*
- * ============================================================================
- * COMPONENTE
- * ============================================================================
- */
+const formatHours = (value: number) => new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 }).format(value);
+const formatDate = (value: string) => new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
 
-/**
- * Muestra el modal solo cuando existe un conflicto.
- *
- * El formulario real vive en CreateEventConflictForm y se monta con una
- * `key` distinta por conflicto: cada conflicto nuevo empieza con el
- * formulario limpio, sin necesidad de un useEffect que lo reinicie.
- */
 export function CreateEventConflictModal({
-  conflict,
-  ...rest
-}: CreateEventConflictModalProps) {
+  conflict, onClose, onConflictUpdate, onResolve, onResolved, taskName, taskHours,
+  additionalPlannedHours = 0, excludeTaskId, excludeEventId, maxDate, stillOverloaded = false,
+  plannedLoads,
+}: Props) {
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [notice, setNotice] = useState("");
+  const onResolvedRef = useRef(onResolved);
+
+  useEffect(() => { onResolvedRef.current = onResolved; }, [onResolved]);
+
+  const load = useDailyLoad(conflict?.target_date, {
+    enabled: !!conflict,
+    refetchInterval: false,
+    excludeTaskId,
+    excludeEventId,
+    suggestedHours: conflict ? Number(taskHours ?? conflict.attempted_hours) : undefined,
+    maxDate,
+    plannedLoads,
+  });
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = window.setTimeout(() => {
+      onResolvedRef.current?.(success);
+      setSuccess("");
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [success]);
+
   if (!conflict) {
-    return null;
+    return <>
+      {notice && <div role="alert" className="fixed left-1/2 top-1/2 z-[300] flex w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-950 shadow-2xl"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" /><p className="flex-1">{notice}</p><button type="button" aria-label="Cerrar aviso" onClick={() => setNotice("")} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button></div>}
+    </>;
   }
 
-  return (
-    <CreateEventConflictForm
-      key={`${conflict.target_date}-${conflict.current_hours}-${conflict.attempted_hours}`}
-      conflict={conflict}
-      {...rest}
-    />
-  );
-}
+  const current = conflict;
+  const fallbackLimit = Number(current.daily_hour_limit);
+  const dailyLimit = load.isError ? Number.NaN : Number(load.data?.daily_hour_limit ?? fallbackLimit);
+  const existingHours = load.isError ? Number.NaN : Number(load.data?.total_hours_scheduled ?? current.current_hours);
+  const addHours = Number.isFinite(additionalPlannedHours) ? additionalPlannedHours : 0;
+  const originalHours = Number(taskHours ?? current.attempted_hours);
+  const availableHours = dailyLimit - existingHours - addHours;
+  const projectedHours = existingHours + addHours + originalHours;
+  const conflictDetail = Number.isFinite(projectedHours) && Number.isFinite(dailyLimit)
+    ? `Quedarías con ${formatHours(projectedHours)} h planificadas (límite ${formatHours(dailyLimit)} h).`
+    : current.detail;
+  const suggestedDates = load.data?.suggested_dates ?? current.suggested_dates;
+  const targetDate = suggestedDates.find((date) => !maxDate || date <= maxDate);
+  const isSuccess = !!success;
+  const dismiss = () => { setNotice(""); onClose(); };
 
-function CreateEventConflictForm({
-  conflict,
-  onClose,
-  onResolve,
-  taskName,
-  taskHours,
-  maxDate,
-  stillOverloaded = false,
-}: CreateEventConflictModalProps & { conflict: CreateEventConflict }) {
-  const [selectedOption, setSelectedOption] =
-    useState<CreateEventConflictAction>("MOVE_DATE");
-  const [newDate, setNewDate] = useState("");
-  const [newHours, setNewHours] = useState("");
-  const [formError, setFormError] = useState("");
+  const run = async (action: CreateEventConflictAction) => {
+    if (busy || isSuccess) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const fresh = await load.refetch();
+      if (!fresh.data || fresh.isError) throw new Error("No se pudo consultar la capacidad actual. Inténtalo nuevamente.");
 
-  const currentHours = Number(conflict.current_hours);
-  const attemptedHours = Number(conflict.attempted_hours);
-  const limitHours = Number(conflict.daily_hour_limit);
-  const totalProjected = currentHours + attemptedHours;
-
-  /*
-   * Horas máximas que puede tener la subtarea en la fecha afectada:
-   * límite - horas actuales - horas de las OTRAS subtareas nuevas
-   * programadas ese mismo día.
-   */
-  const otherNewHours =
-    taskHours !== undefined ? Math.max(0, attemptedHours - taskHours) : 0;
-
-  const maxHours = Math.max(
-    0,
-    Math.round((limitHours - currentHours - otherNewHours) * 100) / 100,
-  );
-
-  const canReduce = maxHours > 0;
-
-  const selectOption = (option: CreateEventConflictAction) => {
-    setSelectedOption(option);
-    setFormError("");
+      if (action === "REDUCE_HOURS") {
+        const remaining = Number(fresh.data.daily_hour_limit) - Number(fresh.data.total_hours_scheduled) - addHours;
+        const hours = Math.floor(Math.min(originalHours, remaining) * 100) / 100;
+        if (!Number.isFinite(hours) || hours < 0.5) {
+          setNotice(`No es posible ajustar la subtarea: la fecha ya alcanzó su capacidad diaria permitida y deben quedar al menos 0,5 h disponibles.`);
+          return;
+        }
+        const description = await onResolve(action, { newHours: hours });
+        setSuccess(description);
+      } else {
+        const availableDate = (fresh.data.suggested_dates ?? []).find((date) => !maxDate || date <= maxDate);
+        if (!availableDate) {
+          setNotice("No hay una fecha futura disponible dentro del horizonte de búsqueda. No se modificó la subtarea.");
+          return;
+        }
+        const description = await onResolve(action, { newDate: availableDate });
+        setSuccess(description);
+      }
+    } catch (error) {
+      const updatedConflict = extractDailyOverloadConflict(error);
+      if (updatedConflict) {
+        onConflictUpdate?.(updatedConflict);
+        setNotice("El backend todavía detecta sobrecarga. Se actualizó el conflicto; revisa la carga y aplica otra opción.");
+      } else {
+        if (axios.isAxiosError(error)) {
+          const response = error.response;
+          const data = response?.data as Record<string, unknown> | undefined;
+          const fieldError = data && ["detail", "new_date", "new_hours", "scheduled_date", "estimated_hours"].map((key) => data[key]).find(Boolean);
+          const message = Array.isArray(fieldError) ? String(fieldError[0]) : typeof fieldError === "string" ? fieldError : null;
+          setNotice(message ?? (response?.status === 401 || response?.status === 403
+            ? "Tu sesión no permite realizar esta operación. Vuelve a iniciar sesión e inténtalo nuevamente."
+            : response?.status && response.status >= 500
+              ? "El servidor no pudo guardar el cambio. No se aplicó la operación; inténtalo nuevamente."
+              : !response
+                ? "No se pudo conectar con el servidor. No se aplicó el cambio; verifica tu conexión e inténtalo nuevamente."
+                : "No se pudo guardar el cambio. Verifica los datos e inténtalo nuevamente."));
+        } else {
+          setNotice(error instanceof Error ? error.message : "No se pudo resolver el conflicto. Inténtalo nuevamente.");
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setFormError("");
-
-    if (selectedOption === "MOVE_DATE") {
-      if (!newDate) {
-        setFormError("Selecciona la nueva fecha.");
-        return;
-      }
-
-      if (newDate === conflict.target_date) {
-        setFormError("Elige una fecha distinta a la que produjo el conflicto.");
-        return;
-      }
-
-      if (maxDate && newDate > maxDate) {
-        setFormError(
-          `La fecha no puede ser posterior a la fecha del evento (${maxDate}).`,
-        );
-        return;
-      }
-
-      onResolve("MOVE_DATE", { newDate });
-      return;
-    }
-
-    // REDUCE_HOURS
-    const hours = Number(newHours);
-
-    if (!newHours || Number.isNaN(hours) || hours <= 0) {
-      setFormError("Ingresa unas horas válidas (mayores a 0).");
-      return;
-    }
-
-    if (hours > maxHours) {
-      setFormError(
-        `Para el ${conflict.target_date} puedes programar máximo ${maxHours} h.`,
-      );
-      return;
-    }
-
-    onResolve("REDUCE_HOURS", { newHours: hours });
-  };
-
-  /* Estilos compartidos de los botones de opción (pills) */
-  const pillClass = (active: boolean, disabled = false) =>
-    `inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
-      disabled
-        ? "cursor-not-allowed border-red-100 bg-white/60 text-red-300"
-        : active
-          ? "border-red-600 bg-red-600 text-white"
-          : "border-red-200 bg-white text-red-700 hover:bg-red-50"
-    }`;
-
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-gray-100 bg-white p-6 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        {/* Header del modal */}
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              Programar subtarea
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {taskName ? `"${taskName}" — ` : ""}Ajusta la fecha y horas
-              planificadas
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-          >
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tarjeta de conflicto */}
-        <div className="mb-5 rounded-2xl border border-red-200 bg-red-50/60 p-4">
-          {/* Cabecera de la tarjeta */}
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-lg">
-              ⚠️
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold text-red-900">
-                  {stillOverloaded
-                    ? "El día continúa sobrecargado"
-                    : "Conflicto de Sobrecarga Diaria"}
-                </h3>
-
-                <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                  Límite excedido
+    <>
+      <Dialog open onOpenChange={(open) => { if (!open && !busy && !success) dismiss(); }}>
+        <DialogContent showCloseButton={false} className="max-h-[90vh] overflow-y-auto rounded-2xl border-0 p-0 shadow-2xl sm:max-w-lg">
+          <section className={`rounded-2xl border p-5 transition-colors sm:p-6 ${isSuccess ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isSuccess ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                  {isSuccess ? <CheckCircle2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
                 </span>
+                <DialogHeader className="gap-1 text-left">
+                  <DialogTitle className={`text-lg font-bold ${isSuccess ? "text-emerald-950" : "text-rose-950"}`}>{isSuccess ? "Operación exitosa" : stillOverloaded ? "El día continúa sobrecargado" : "Conflicto de capacidad diaria"}</DialogTitle>
+                  <DialogDescription className={`${isSuccess ? "text-emerald-800" : "text-rose-800"}`}>
+                    {isSuccess ? success : `${taskName ? `“${taskName}” · ` : ""}${conflictDetail}`}
+                  </DialogDescription>
+                </DialogHeader>
               </div>
-
-              <p className="mt-1 text-sm leading-relaxed text-red-700">
-                {taskName
-                  ? `Al programar "${taskName}" el ${conflict.target_date}, superas tu límite de ${conflict.daily_hour_limit}h diarias.`
-                  : conflict.detail}{" "}
-                Total proyectado: {totalProjected.toFixed(2)} horas.
-              </p>
-            </div>
-          </div>
-
-          {/* Estadísticas */}
-          <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-red-100 bg-white p-3 text-center">
-            <div>
-              <p className="text-xs text-gray-500">Horas actuales</p>
-              <p className="text-lg font-bold text-slate-900">
-                {currentHours.toFixed(2)}h
-              </p>
+              {!busy && !isSuccess && <button type="button" aria-label="Cerrar panel" onClick={dismiss} className="rounded-lg p-2 text-slate-500 transition hover:bg-white/70 hover:text-slate-900"><X className="h-4 w-4" /></button>}
             </div>
 
-            <div>
-              <p className="text-xs text-gray-500">A programar</p>
-              <p className="text-lg font-bold text-orange-700">
-                {attemptedHours.toFixed(2)}h
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-500">Límite diario</p>
-              <p className="text-lg font-bold text-red-600">
-                {limitHours.toFixed(2)}h
-              </p>
-            </div>
-          </div>
-
-          {/* Fechas sugeridas */}
-          <div className="mt-4">
-            {conflict.suggested_dates.length > 0 ? (
+            {!isSuccess && (
               <>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                  Fechas con disponibilidad:
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {conflict.suggested_dates.map((date) => (
-                    <button
-                      key={date}
-                      type="button"
-                      onClick={() => {
-                        setSelectedOption("MOVE_DATE");
-                        setNewDate(date);
-                        setFormError("");
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                        selectedOption === "MOVE_DATE" && newDate === date
-                          ? "border-green-600 bg-green-600 text-white"
-                          : "border-green-300 bg-green-50 text-green-800 hover:bg-green-100"
-                      }`}
-                    >
-                      📅 {date}
-                    </button>
-                  ))}
+                <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl border border-rose-100 bg-white p-3 text-center">
+                  <div><p className="text-xs text-slate-500">Ya planificadas</p><p className="mt-1 font-semibold tabular-nums text-slate-900">{Number.isFinite(existingHours) ? `${formatHours(existingHours + addHours)} h` : "—"}</p></div>
+                  <div><p className="text-xs text-slate-500">Esta subtarea</p><p className="mt-1 font-semibold tabular-nums text-rose-700">{formatHours(originalHours)} h</p></div>
+                  <div><p className="text-xs text-slate-500">Límite diario</p><p className="mt-1 font-semibold tabular-nums text-slate-900">{Number.isFinite(dailyLimit) && dailyLimit > 0 ? formatHours(dailyLimit) : "—"} h</p></div>
                 </div>
+                <p className="mt-3 flex items-center gap-2 text-xs text-slate-600"><Clock3 className="h-4 w-4" />Capacidad libre para el ajuste: {Number.isFinite(availableHours) ? `${formatHours(Math.max(0, availableHours))} h` : "consultando…"}{load.isFetching && <span className="animate-pulse">Actualizando</span>}</p>
+                {notice && <div role="alert" className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><p className="flex-1">{notice}</p><button type="button" aria-label="Cerrar aviso" onClick={() => setNotice("")} className="rounded p-0.5 hover:bg-amber-100"><X className="h-4 w-4" /></button></div>}
+                {load.isError && <p role="alert" className="mt-3 text-sm text-rose-800">No se pudo actualizar la capacidad diaria. Reintenta una acción para volver a consultar.</p>}
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <Button type="button" disabled={busy || load.isLoading} onClick={() => void run("REDUCE_HOURS")} className="h-11 bg-indigo-700 text-white hover:bg-indigo-800"><Pencil className="mr-2 h-4 w-4" />{busy ? "Validando…" : "Ajustar horas"}</Button>
+                  <Button type="button" variant="outline" disabled={busy || load.isLoading} onClick={() => void run("MOVE_DATE")} className="h-11 border-indigo-200 text-indigo-800 hover:bg-indigo-50"><CalendarClock className="mr-2 h-4 w-4" />Cambiar fecha{targetDate ? ` · ${formatDate(targetDate)}` : ""}</Button>
+                </div>
+                <div className="mt-4 flex justify-end border-t border-rose-200 pt-3"><Button type="button" variant="ghost" disabled={busy} onClick={dismiss}>Cancelar</Button></div>
               </>
-            ) : (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                📋 No hay fechas disponibles automáticamente. Ingresa una fecha
-                manualmente.
-              </p>
             )}
-          </div>
-
-          {/* Opciones para resolver */}
-          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-red-200 pt-4">
-            <span className="text-sm text-red-700">
-              Opciones para resolver el conflicto:
-            </span>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!canReduce}
-                title={
-                  !canReduce
-                    ? "Ese día ya no tiene horas disponibles."
-                    : undefined
-                }
-                onClick={() => selectOption("REDUCE_HOURS")}
-                className={pillClass(
-                  selectedOption === "REDUCE_HOURS",
-                  !canReduce,
-                )}
-              >
-                ✏️ Ajustar horas
-              </button>
-
-              <button
-                type="button"
-                onClick={() => selectOption("MOVE_DATE")}
-                className={pillClass(selectedOption === "MOVE_DATE")}
-              >
-                📅 Cambiar fecha
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {selectedOption === "MOVE_DATE" && (
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-800">
-                Nueva fecha *
-              </label>
-              <input
-                type="date"
-                value={newDate}
-                max={maxDate}
-                onChange={(e) => {
-                  setNewDate(e.target.value);
-                  setFormError("");
-                }}
-                className="w-full rounded-xl border-2 border-amber-300 bg-amber-50/30 p-2.5 text-sm text-gray-900 outline-none focus:border-amber-400"
-              />
-            </div>
-          )}
-
-          {selectedOption === "REDUCE_HOURS" && canReduce && (
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-800">
-                Horas estimadas *{" "}
-                <span className="font-normal text-gray-400">
-                  (0.5–{maxHours}h)
-                </span>
-              </label>
-              <input
-                type="number"
-                step="0.5"
-                min="0.5"
-                max={maxHours}
-                value={newHours}
-                onChange={(e) => {
-                  setNewHours(e.target.value);
-                  setFormError("");
-                }}
-                placeholder={`Máximo ${maxHours} h`}
-                className="w-full rounded-xl border-2 border-amber-300 bg-amber-50/30 p-2.5 text-sm text-gray-900 outline-none focus:border-amber-400"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Disponible el {conflict.target_date}: {maxHours} h
-              </p>
-            </div>
-          )}
-
-          {/* Error de validación */}
-          {formError && (
-            <p role="alert" className="text-sm font-medium text-red-600">
-              {formError}
-            </p>
-          )}
-
-          {/* Botones */}
-          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
-            >
-              Aplicar cambio
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </section>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
