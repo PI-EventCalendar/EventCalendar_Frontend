@@ -267,12 +267,6 @@ function EventsListContent() {
     show: showErrorMessage,
     clear: clearErrorMessage,
   } = useAutoDismissMessage(5000);
-  const {
-    message: resolutionSuccessMessage,
-    show: showResolutionSuccess,
-    clear: clearResolutionSuccess,
-  } = useAutoDismissMessage(6000);
-
   const queryClient = useQueryClient();
 
   // ============================================================
@@ -953,16 +947,8 @@ function EventsListContent() {
           setEventToEdit(null);
         }}
         onSave={handleEventSaved}
-        onResolutionSuccess={showResolutionSuccess}
         eventToEdit={eventToEdit}
       />
-      {resolutionSuccessMessage && (
-        <div role="status" className="fixed left-1/2 top-1/2 z-[300] flex w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-2xl">
-          <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-          <div className="flex-1"><p className="font-semibold text-slate-950">Operación exitosa</p><p className="mt-1 text-sm text-slate-700">{resolutionSuccessMessage}</p></div>
-          <button type="button" aria-label="Cerrar notificación" onClick={clearResolutionSuccess} className="rounded p-1 text-slate-500 hover:bg-slate-100">×</button>
-        </div>
-      )}
     </div>
   );
 }

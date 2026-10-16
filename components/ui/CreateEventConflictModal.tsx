@@ -86,7 +86,7 @@ export function CreateEventConflictModal({
     const timer = window.setTimeout(() => {
       onResolvedRef.current?.(success);
       setSuccess("");
-    }, 650);
+    }, 1200);
     return () => window.clearTimeout(timer);
   }, [success]);
 

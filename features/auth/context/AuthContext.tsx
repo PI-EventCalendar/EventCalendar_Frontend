@@ -8,8 +8,10 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import type { User, LoginPayload } from "../types";
 import { loginUser, getCurrentUser } from "../services/authService";
+import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Tipos del contexto ───────────────────────────────────────────────────────
 
@@ -28,6 +30,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -35,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      setIsLoading(false);
+      void Promise.resolve().then(() => setIsLoading(false));
       return;
     }
 
@@ -53,15 +57,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("access_token", tokens.access);
     localStorage.setItem("refresh_token", tokens.refresh);
     const me = await getCurrentUser();
+    queryClient.clear();
     setUser(me);
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(() => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    queryClient.clear();
     setUser(null);
-    window.location.href = "/login";
-  }, []);
+    router.push("/login");
+  }, [queryClient, router]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

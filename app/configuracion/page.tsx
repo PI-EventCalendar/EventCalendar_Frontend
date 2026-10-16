@@ -45,12 +45,21 @@ export default function SettingsPage() {
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setMessage("Capacidad diaria actualizada.");
     } catch (requestError: unknown) {
-      const messages = (requestError as { response?: { data?: { daily_hour_limit?: unknown } } })
-        .response?.data?.daily_hour_limit;
+      const body = (requestError as { response?: { data?: Record<string, unknown> } }).response?.data;
+      const messages = body?.daily_hour_limit;
+      const detail = body?.detail;
+      const conflicts = Array.isArray(body?.conflicts)
+        ? body.conflicts as Array<{ date?: string; hours?: string }>
+        : [];
       setError(
         Array.isArray(messages) && typeof messages[0] === "string"
           ? messages[0]
-          : "No se pudo actualizar la capacidad diaria.",
+          : conflicts.length
+            ? "El nuevo límite dejaría sobrecargadas estas fechas: " +
+              conflicts.map((item) => item.date + " (" + item.hours + " h)").join(", ") + "."
+            : typeof detail === "string"
+              ? detail
+              : "No se pudo actualizar la capacidad diaria.",
       );
     } finally {
       setSaving(false);
