@@ -15,27 +15,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CreateEventConflictModal,
+  extractDailyOverloadConflict,
+  type CreateEventConflict,
+  type CreateEventConflictAction,
+  type CreateEventConflictPayload,
+} from "@/components/ui/CreateEventConflictModal";
 import { useRescheduleTask } from "../hooks/useTasks";
-import type { DailyOverloadConflictError } from "../types";
+import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
 
-// ─── Constantes de validación (deben coincidir con el backend) ────────────────
 const MIN_TASK_HOURS = 0.25;
 const MAX_TASK_HOURS = 24;
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
-
 const rescheduleSchema = z.object({
   scheduled_date: z.string().min(1, "La nueva fecha es requerida"),
-  estimated_hours: z.coerce
-    .number()
+  estimated_hours: z.coerce.number()
     .min(MIN_TASK_HOURS, `Las horas deben ser al menos ${MIN_TASK_HOURS}`)
     .max(MAX_TASK_HOURS, `Las horas no pueden superar ${MAX_TASK_HOURS}`),
   reason: z.string().optional(),
 });
-
 type RescheduleFormValues = z.infer<typeof rescheduleSchema>;
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface ReschedulableTask {
   id: number;
@@ -49,71 +48,53 @@ interface RescheduleModalProps {
   task: ReschedulableTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (description?: string) => void;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const formatDate = (value: string) => new Intl.DateTimeFormat("es-CO", {
+  day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC",
+}).format(new Date(`${value}T00:00:00Z`));
 
-export function RescheduleModal({
-  task,
-  open,
-  onOpenChange,
-  onSuccess,
-}: RescheduleModalProps) {
-  const { mutateAsync: reschedule, isPending } = useRescheduleTask(
-    task?.id ?? 0,
-  );
-  //const [requestError, setRequestError] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<DailyOverloadConflictError | null>(
-    null,
-  );
-  const [genericError, setGenericError] = useState<string | null>(null);
-  /** true cuando el último intento falló y el día sigue sobrecargado */
+export function RescheduleModal({ task, open, onOpenChange, onSuccess }: RescheduleModalProps) {
+  const { mutateAsync: reschedule, isPending } = useRescheduleTask(task?.id ?? 0);
+  const [conflict, setConflict] = useState<CreateEventConflict | null>(null);
+  const [genericError, setGenericError] = useState("");
   const [stillOverloaded, setStillOverloaded] = useState(false);
-
-  const defaultHours = task?.estimated_hours ? Number(task.estimated_hours) : 2;
-
   const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    setFocus,
+    message: conflictSuccess,
+    show: showConflictSuccess,
+    clear: clearConflictSuccess,
+  } = useAutoDismissMessage(6000);
+  const defaultHours = task?.estimated_hours ? Number(task.estimated_hours) : 2;
+  const {
+    register, handleSubmit, reset, getValues,
     formState: { errors },
   } = useForm<RescheduleFormValues>({
     resolver: zodResolver(rescheduleSchema),
-
     defaultValues: {
       scheduled_date: task?.scheduled_date ?? "",
       estimated_hours: defaultHours,
       reason: "Reprogramación de tarea",
     },
   });
+
   const handleClose = () => {
     setConflict(null);
-    setGenericError(null);
+    setGenericError("");
     setStillOverloaded(false);
     onOpenChange(false);
   };
 
-  /** Inyecta una fecha sugerida en el campo y mueve el foco al botón submit */
-  const applySuggestedDate = (dateStr: string) => {
-    setValue("scheduled_date", dateStr, { shouldValidate: true });
-    setFocus("scheduled_date");
-  };
   const onSubmit = async (values: RescheduleFormValues) => {
     if (!task) return;
+    clearConflictSuccess();
     setConflict(null);
-    setGenericError(null);
+    setGenericError("");
     setStillOverloaded(false);
-
     if (task.event_date && values.scheduled_date > task.event_date) {
-      setGenericError(
-        "La fecha reprogramada no puede ser posterior a la fecha del evento.",
-      );
+      setGenericError("La fecha reprogramada no puede ser posterior a la fecha del evento.");
       return;
     }
-
     try {
       await reschedule({
         new_date: values.scheduled_date,
@@ -123,304 +104,100 @@ export function RescheduleModal({
       onSuccess?.();
       reset();
       handleClose();
-    } catch (err: unknown) {
-      // Los datos del formulario se conservan para permitir reintentar (DoD)
-      if (axios.isAxiosError(err) && err.response?.status === 409) {
-        const errorData = err.response.data as DailyOverloadConflictError;
-        setConflict(errorData);
-        // Detectar si es un reintento que también falló → "día continúa sobrecargado"
+    } catch (error: unknown) {
+      const overload = extractDailyOverloadConflict(error);
+      if (overload) {
+        setConflict(overload);
         setStillOverloaded(conflict !== null);
-      } else if (axios.isAxiosError(err) && err.response?.data) {
-        const errorData = err.response.data;
-        if (errorData.detail) {
-          setGenericError(
-            typeof errorData.detail === "string"
-              ? errorData.detail
-              : "Error al reprogramar la subtarea.",
-          );
-        } else if (errorData.new_date) {
-          setGenericError(
-            Array.isArray(errorData.new_date)
-              ? errorData.new_date[0]
-              : String(errorData.new_date),
-          );
-        } else if (errorData.scheduled_date) {
-          setGenericError(
-            Array.isArray(errorData.scheduled_date)
-              ? errorData.scheduled_date[0]
-              : String(errorData.scheduled_date),
-          );
-        } else {
-          setGenericError(
-            "No se pudo reprogramar. Verifica los datos e inténtalo de nuevo.",
-          );
-        }
+      } else if (axios.isAxiosError(error) && error.response?.data) {
+        const data = error.response.data as Record<string, unknown>;
+        const detail = data.detail ?? data.new_date ?? data.scheduled_date;
+        setGenericError(Array.isArray(detail) ? String(detail[0]) : typeof detail === "string" ? detail : "No se pudo reprogramar. Verifica los datos e inténtalo de nuevo.");
       } else {
-        setGenericError(
-          "No se pudo reprogramar. Verifica los datos e inténtalo de nuevo.",
-        );
+        setGenericError("No se pudo conectar con el servidor. Conservamos los datos; inténtalo nuevamente.");
       }
     }
   };
 
-  const hasSuggestions =
-    conflict && conflict.suggested_dates && conflict.suggested_dates.length > 0;
+  const resolveConflict = async (
+    action: CreateEventConflictAction,
+    payload: CreateEventConflictPayload,
+  ): Promise<string> => {
+    if (!task || !conflict) throw new Error("El conflicto ya no está disponible.");
+    const oldHours = Number(conflict.attempted_hours);
+    const targetDate = action === "MOVE_DATE" ? payload.newDate : conflict.target_date;
+    const nextHours = action === "REDUCE_HOURS" ? payload.newHours : oldHours;
+    if (!targetDate || nextHours === undefined) throw new Error("No se pudo preparar la reprogramación.");
+    await reschedule({
+      new_date: targetDate,
+      new_hours: nextHours,
+      reason: "Resolución automática de conflicto de capacidad diaria",
+    });
+    return action === "MOVE_DATE"
+      ? `Fecha actualizada: ${formatDate(conflict.target_date)} → ${formatDate(targetDate)}`
+      : `Duración ajustada: ${oldHours} h → ${nextHours} h`;
+  };
+
+  const onConflictResolved = (description: string) => {
+    showConflictSuccess(description);
+    onSuccess?.(description);
+    reset();
+    handleClose();
+  };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) handleClose();
-        else onOpenChange(true);
-      }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-gray-900">
-            Reprogramar subtarea
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            {task?.title ? `"${task.title}"` : "Subtarea"} — Ajusta la fecha y
-            horas planificadas
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* ── ALERTA DE SOBRECARGA (DoD: mostrar alternativas) ── */}
-        {conflict && (
-          <div
-            id="overload-alert"
-            role="alert"
-            aria-live="assertive"
-            className="rounded-xl border border-red-300 bg-red-50 p-4 shadow-xs space-y-3 animate-in fade-in-50"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-base">
-                ⚠️
+    <>
+      <Dialog
+        open={open && !conflict}
+        onOpenChange={(nextOpen) => { if (!nextOpen) handleClose(); else onOpenChange(true); }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900">Reprogramar subtarea</DialogTitle>
+            <DialogDescription>{task?.title ? `“${task.title}” — Ajusta la fecha y horas planificadas` : "Ajusta la fecha y horas planificadas"}</DialogDescription>
+          </DialogHeader>
+          {genericError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{genericError}</p>}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="reschedule-date">Nueva fecha *</Label>
+                <Input id="reschedule-date" type="date" max={task?.event_date} aria-invalid={!!errors.scheduled_date} {...register("scheduled_date")} />
+                {errors.scheduled_date && <p className="text-xs text-destructive" role="alert">{errors.scheduled_date.message}</p>}
               </div>
-              <div className="space-y-1 flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-red-900 text-sm">
-                    {stillOverloaded
-                      ? "El día continúa sobrecargado"
-                      : "Conflicto de Sobrecarga Diaria"}
-                  </h4>
-                  <span className="rounded-full bg-red-200 px-2 py-0.5 text-[11px] font-semibold text-red-800">
-                    Límite excedido
-                  </span>
-                </div>
-                <p className="text-xs text-red-800 font-medium leading-relaxed">
-                  {stillOverloaded
-                    ? `Aún se exceden las ${conflict.daily_hour_limit}h diarias. Ajusta la fecha u horas para resolver el conflicto.`
-                    : conflict.detail}
-                </p>
+              <div className="space-y-1">
+                <Label htmlFor="reschedule-hours">Horas estimadas *</Label>
+                <Input id="reschedule-hours" type="number" step="0.25" min={MIN_TASK_HOURS} max={MAX_TASK_HOURS} aria-invalid={!!errors.estimated_hours} {...register("estimated_hours")} />
+                {errors.estimated_hours && <p className="text-xs text-destructive" role="alert">{errors.estimated_hours.message}</p>}
               </div>
             </div>
-
-            {/* Métricas de carga del día */}
-            <div className="grid grid-cols-3 gap-2 rounded-lg bg-white/90 p-2.5 text-center text-xs border border-red-200">
-              <div>
-                <span className="block text-[11px] text-gray-500 font-medium">
-                  Horas actuales
-                </span>
-                <span className="text-sm font-bold text-gray-800">
-                  {conflict.current_hours}h
-                </span>
-              </div>
-              <div>
-                <span className="block text-[11px] text-gray-500 font-medium">
-                  A reprogramar
-                </span>
-                <span className="text-sm font-bold text-amber-700">
-                  {conflict.attempted_hours}h
-                </span>
-              </div>
-              <div>
-                <span className="block text-[11px] text-gray-500 font-medium">
-                  Límite diario
-                </span>
-                <span className="text-sm font-bold text-red-600">
-                  {conflict.daily_hour_limit}h
-                </span>
-              </div>
-            </div>
-
-            {/* ── Fechas sugeridas (DoD: chips de fecha sugerida) ── */}
-            {hasSuggestions ? (
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">
-                  Fechas con disponibilidad:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {conflict.suggested_dates.map((dateStr) => (
-                    <button
-                      key={dateStr}
-                      type="button"
-                      onClick={() => applySuggestedDate(dateStr)}
-                      className="inline-flex items-center gap-1 rounded-md bg-green-50 border border-green-300 px-2.5 py-1 text-xs font-semibold text-green-800 hover:bg-green-100 transition-colors"
-                    >
-                      📅 {dateStr}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              /* ── Sin sugerencias → informar fecha manual (DoD) ── */
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                📋 No hay fechas disponibles automáticamente para los próximos
-                días. Por favor ingresa una fecha manualmente en el campo
-                &quot;Nueva fecha&quot;.
-              </p>
-            )}
-
-            {/* Accesos rápidos a los campos */}
-            <div className="border-t border-red-200 pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
-              <span className="text-red-900 font-medium text-[11px]">
-                Opciones para resolver el conflicto:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFocus("estimated_hours")}
-                  className="h-7 text-xs border-red-300 bg-white text-red-700 hover:bg-red-100"
-                >
-                  ✏️ Ajustar horas
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFocus("scheduled_date")}
-                  className="h-7 text-xs border-red-300 bg-white text-red-700 hover:bg-red-100"
-                >
-                  📅 Cambiar fecha
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClose}
-                  className="h-7 text-xs text-gray-600 hover:bg-gray-100"
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error genérico (datos conservados para reintentar – DoD) */}
-        {genericError && (
-          <div
-            role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 font-medium"
-          >
-            {genericError}
-          </div>
-        )}
-
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="space-y-4 pt-1"
-          noValidate
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Campo Nueva fecha */}
             <div className="space-y-1">
-              <Label
-                htmlFor="reschedule-date"
-                className="text-xs font-semibold text-gray-700"
-              >
-                Nueva fecha *
-              </Label>
-              <Input
-                id="reschedule-date"
-                type="date"
-                max={task?.event_date}
-                aria-invalid={!!errors.scheduled_date}
-                className={`text-sm ${conflict ? "border-amber-400 bg-amber-50/20" : ""}`}
-                {...register("scheduled_date")}
-              />
-              {errors.scheduled_date && (
-                <p className="text-xs text-destructive" role="alert">
-                  {errors.scheduled_date.message}
-                </p>
-              )}
+              <Label htmlFor="reschedule-reason">Motivo de reprogramación</Label>
+              <Input id="reschedule-reason" {...register("reason")} />
             </div>
-
-            {/* Campo Horas estimadas (DoD: rango 0.25–24) */}
-            <div className="space-y-1">
-              <Label
-                htmlFor="reschedule-hours"
-                className="text-xs font-semibold text-gray-700"
-              >
-                Horas estimadas *{" "}
-                <span className="font-normal text-gray-400">
-                  ({MIN_TASK_HOURS}–{MAX_TASK_HOURS}h)
-                </span>
-              </Label>
-              <Input
-                id="reschedule-hours"
-                type="number"
-                step="0.25"
-                min={MIN_TASK_HOURS}
-                max={MAX_TASK_HOURS}
-                aria-invalid={!!errors.estimated_hours}
-                className={`text-sm ${conflict ? "border-amber-400 bg-amber-50/20" : ""}`}
-                {...register("estimated_hours")}
-              />
-              {errors.estimated_hours && (
-                <p className="text-xs text-destructive" role="alert">
-                  {errors.estimated_hours.message}
-                </p>
-              )}
+            <div className="flex justify-end gap-2 border-t pt-3">
+              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>Cancelar</Button>
+              <Button type="submit" disabled={isPending} className="bg-indigo-600 text-white hover:bg-indigo-700">{isPending ? "Guardando…" : "Guardar"}</Button>
             </div>
-          </div>
-
-          {/* Campo Motivo */}
-          <div className="space-y-1">
-            <Label
-              htmlFor="reschedule-reason"
-              className="text-xs font-semibold text-gray-700"
-            >
-              Motivo de reprogramación
-            </Label>
-            <Input
-              id="reschedule-reason"
-              placeholder="Ej. Cambio de cronograma, ajuste de disponibilidad..."
-              className="text-sm"
-              {...register("reason")}
-            />
-          </div>
-
-          <div className="flex gap-2 justify-end pt-2 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isPending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isPending}
-              className={
-                conflict
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
-              }
-            >
-              {isPending
-                ? "Guardando..."
-                : conflict
-                  ? "Reintentar reprogramación"
-                  : "Guardar"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <CreateEventConflictModal
+        conflict={conflict}
+        onClose={handleClose}
+        onConflictUpdate={(updated) => { setStillOverloaded(true); setConflict(updated); }}
+        onResolve={resolveConflict}
+        onResolved={onConflictResolved}
+        stillOverloaded={stillOverloaded}
+        taskName={task?.title}
+        taskHours={Number(conflict?.attempted_hours ?? getValues("estimated_hours"))}
+        excludeTaskId={task?.id}
+        maxDate={task?.event_date}
+      />
+      {conflictSuccess && <div role="status" className="fixed left-1/2 top-1/2 z-[300] flex w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-2xl">
+        <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+        <div className="flex-1"><p className="font-semibold text-slate-950">Operación exitosa</p><p className="mt-1 text-sm text-slate-700">{conflictSuccess}</p></div>
+        <button type="button" aria-label="Cerrar notificación" onClick={clearConflictSuccess} className="rounded p-1 text-slate-500 hover:bg-slate-100">×</button>
+      </div>}
+    </>
   );
 }

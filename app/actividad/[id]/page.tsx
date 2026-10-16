@@ -698,10 +698,9 @@ function EventDetailContent() {
             }
             open={!!taskToReschedule}
             onOpenChange={(open) => !open && setTaskToReschedule(null)}
-            onSuccess={() => {
-              showSuccessMessage("Fecha actualizada");
-
-              loadEvent();
+            onSuccess={(description) => {
+              if (!description) showSuccessMessage("Fecha actualizada");
+              void loadEvent();
             }}
           />
           <PostponeModal

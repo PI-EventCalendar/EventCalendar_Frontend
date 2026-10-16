@@ -14,4 +14,5 @@ export interface DailyLoad {
   capacity_remaining: string | number;
   is_overloaded: boolean;
   tasks: Task[];
+  suggested_dates?: string[];
 }
