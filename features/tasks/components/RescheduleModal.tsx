@@ -23,7 +23,6 @@ import {
   type CreateEventConflictPayload,
 } from "@/components/ui/CreateEventConflictModal";
 import { useRescheduleTask } from "../hooks/useTasks";
-import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
 
 const MIN_TASK_HOURS = 0.25;
 const MAX_TASK_HOURS = 24;
@@ -60,11 +59,6 @@ export function RescheduleModal({ task, open, onOpenChange, onSuccess }: Resched
   const [conflict, setConflict] = useState<CreateEventConflict | null>(null);
   const [genericError, setGenericError] = useState("");
   const [stillOverloaded, setStillOverloaded] = useState(false);
-  const {
-    message: conflictSuccess,
-    show: showConflictSuccess,
-    clear: clearConflictSuccess,
-  } = useAutoDismissMessage(6000);
   const defaultHours = task?.estimated_hours ? Number(task.estimated_hours) : 2;
   const {
     register, handleSubmit, reset, getValues,
@@ -87,7 +81,6 @@ export function RescheduleModal({ task, open, onOpenChange, onSuccess }: Resched
 
   const onSubmit = async (values: RescheduleFormValues) => {
     if (!task) return;
-    clearConflictSuccess();
     setConflict(null);
     setGenericError("");
     setStillOverloaded(false);
@@ -139,7 +132,6 @@ export function RescheduleModal({ task, open, onOpenChange, onSuccess }: Resched
   };
 
   const onConflictResolved = (description: string) => {
-    showConflictSuccess(description);
     onSuccess?.(description);
     reset();
     handleClose();
@@ -193,11 +185,6 @@ export function RescheduleModal({ task, open, onOpenChange, onSuccess }: Resched
         excludeTaskId={task?.id}
         maxDate={task?.event_date}
       />
-      {conflictSuccess && <div role="status" className="fixed left-1/2 top-1/2 z-[300] flex w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-2xl">
-        <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-        <div className="flex-1"><p className="font-semibold text-slate-950">Operación exitosa</p><p className="mt-1 text-sm text-slate-700">{conflictSuccess}</p></div>
-        <button type="button" aria-label="Cerrar notificación" onClick={clearConflictSuccess} className="rounded p-1 text-slate-500 hover:bg-slate-100">×</button>
-      </div>}
     </>
   );
 }

@@ -92,7 +92,6 @@ interface CreateEventModalProps {
    * - Si retorna true o no retorna nada: el modal se cierra.
    */
   onSave: (event: CreatedEvent, conflictResolution?: boolean) => Promise<boolean | void>;
-  onResolutionSuccess?: (description: string) => void;
 
   // Evento cargado desde Django cuando estamos editando.
   eventToEdit?: EventToEdit | null;
@@ -244,7 +243,6 @@ export default function CreateEventModal(props: CreateEventModalProps) {
 function CreateEventModalContent({
   onClose,
   onSave,
-  onResolutionSuccess,
   eventToEdit,
 }: CreateEventModalProps) {
   /*
@@ -1436,9 +1434,8 @@ function CreateEventModalContent({
         conflict={conflict}
         onClose={() => { setConflict(null); setConflictResolved(false); }}
         onResolve={handleResolveConflict}
-        onResolved={(description) => {
+        onResolved={() => {
           onClose();
-          onResolutionSuccess?.(description);
         }}
         stillOverloaded={conflictResolved}
         taskName={conflictTask?.name}

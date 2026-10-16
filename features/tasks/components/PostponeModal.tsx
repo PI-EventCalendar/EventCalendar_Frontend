@@ -4,8 +4,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { usePostponeTask } from "../hooks/useTasks";
+import type { Task } from "../types";
 
-export function PostponeModal({ task, open, onOpenChange, onSuccess }: { task: { id: number; title: string } | null; open: boolean; onOpenChange: (open: boolean) => void; onSuccess?: () => void }) {
+export function PostponeModal({ task, open, onOpenChange, onSuccess }: { task: { id: number; title: string } | null; open: boolean; onOpenChange: (open: boolean) => void; onSuccess?: (updated?: Task) => void }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const mutation = usePostponeTask(task?.id ?? 0);
@@ -17,7 +18,7 @@ export function PostponeModal({ task, open, onOpenChange, onSuccess }: { task: {
   const submit = async () => {
     if (!task) return;
     setError("");
-    try { await mutation.mutateAsync(note.trim() || null); setNote(""); onOpenChange(false); onSuccess?.(); }
+    try { const updated = await mutation.mutateAsync(note.trim() || null); setNote(""); onOpenChange(false); onSuccess?.(updated); }
     catch (requestError) {
       const response = (requestError as { response?: { data?: Record<string, unknown> } }).response;
       const body = response?.data;

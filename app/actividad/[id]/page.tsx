@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { TaskStatus } from "@/types";
 import apiClient from "@/lib/axios";
@@ -122,7 +123,11 @@ function EventDetailContent() {
   const [isCompletingEvent, setIsCompletingEvent] = useState(false);
 
   // Mensajes emergentes: desaparecen solos.
-  const { message: successMessage, show: showSuccessMessage } =
+  const {
+    message: successMessage,
+    show: showSuccessMessage,
+    clear: clearSuccessMessage,
+  } =
     useAutoDismissMessage(3000);
 
   const {
@@ -371,7 +376,7 @@ function EventDetailContent() {
 
       {successMessage && (
         <div
-          className="fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl border border-green-200 bg-white px-5 py-4 shadow-lg"
+          className="fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-lg"
           role="status"
           aria-live="polite"
         >
@@ -381,6 +386,9 @@ function EventDetailContent() {
           <p className="text-sm font-semibold text-gray-900">
             {successMessage}
           </p>
+          <button type="button" onClick={clearSuccessMessage} aria-label="Cerrar mensaje" className="rounded p-1 text-emerald-700 hover:bg-emerald-100">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -709,7 +717,14 @@ function EventDetailContent() {
             }
             open={postponeTaskId !== null}
             onOpenChange={(open) => !open && setPostponeTaskId(null)}
-            onSuccess={loadEvent}
+            onSuccess={(updated) => {
+              void loadEvent();
+              showSuccessMessage(
+                updated?.scheduled_date
+                  ? `Subtarea pospuesta para ${updated.scheduled_date}`
+                  : "Subtarea pospuesta correctamente",
+              );
+            }}
           />
           <CompleteTaskModal
             task={event.tasks.find((task) => task.id === completeTaskId) ?? null}

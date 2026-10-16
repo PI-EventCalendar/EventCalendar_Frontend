@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   LayoutGrid,
@@ -10,16 +10,11 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useTasks } from "@/features/tasks/hooks/useTasks";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user_name");
-    router.push("/login");
-  };
+  const { logout } = useAuth();
   const activeToday = pathname === "/hoy";
   const activeEvents =
     pathname === "/actividad" || pathname.startsWith("/actividad/");

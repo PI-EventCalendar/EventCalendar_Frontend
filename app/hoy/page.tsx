@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import {
   Ban,
@@ -17,11 +16,13 @@ import {
   TimerReset,
   Trash2,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import Sidebar from "@/components/ui/Sidebar";
 import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
 import { PostponeModal } from "@/features/tasks/components/PostponeModal";
 import { CompleteTaskModal } from "@/features/tasks/components/CompleteTaskModal";
+import { TodayTaskEditModal } from "@/features/tasks/components/TodayTaskEditModal";
 import {
   useTasks,
   useUpdateTaskStatus,
@@ -30,6 +31,7 @@ import {
 import { useDailyLoad } from "@/features/dashboard/hooks/useDashboard";
 import type { Task, TaskStatus } from "@/features/tasks/types";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
+import { useAutoDismissMessage } from "@/lib/useAutoDismissMessage";
 
 const labels: Record<TaskStatus, string> = {
   pending: "Pendiente",
@@ -241,7 +243,6 @@ export default function TodayPage() {
   );
 }
 function TodayContent() {
-  const router = useRouter();
   const { data, isLoading, isError, refetch } = useTasks();
   const tasks = useMemo(
     () => (Array.isArray(data) ? data : (data?.results ?? [])),
@@ -255,12 +256,13 @@ function TodayContent() {
   const [postpone, setPostpone] = useState<Task | null>(null);
   const [completion, setCompletion] = useState<Task | null>(null);
   const [completionOpen, setCompletionOpen] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
   const [optimistic, setOptimistic] = useState<Record<number, TaskStatus>>({});
   const [search, setSearch] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TaskStatus>("all");
   const [ordering, setOrdering] = useState(false);
-  const [message, setMessage] = useState("");
+  const { message, show: showMessage, clear: clearMessage } = useAutoDismissMessage(3000);
 
   const completionInProgress = useRef(false);
 
@@ -343,7 +345,7 @@ function TodayContent() {
     const task = completion;
     completionInProgress.current = true;
     setOptimistic((prev) => ({ ...prev, [task.id]: "completed" }));
-    setMessage("");
+    clearMessage();
 
     try {
       await new Promise((resolve) => window.setTimeout(resolve, 900));
@@ -360,7 +362,7 @@ function TodayContent() {
         delete next[task.id];
         return next;
       });
-      setMessage("Subtarea completada y guardada");
+      showMessage("Subtarea completada y guardada");
     } catch {
       completionInProgress.current = false;
       setOptimistic((prev) => {
@@ -368,7 +370,7 @@ function TodayContent() {
         delete next[task.id];
         return next;
       });
-      setMessage("No se pudo completar la subtarea. Inténtalo nuevamente.");
+      showMessage("No se pudo completar la subtarea. Inténtalo nuevamente.");
       throw new Error(
         "No se pudo guardar la finalización. La nota sigue disponible para volver a intentarlo.",
       );
@@ -379,9 +381,9 @@ function TodayContent() {
     if (!window.confirm(`¿Eliminar “${task.title}”?`)) return;
     try {
       await deleteMutation.mutateAsync(task.id);
-      setMessage("Subtarea eliminada");
+      showMessage("Subtarea eliminada");
     } catch {
-      setMessage("No se pudo eliminar la subtarea.");
+      showMessage("No se pudo eliminar la subtarea.");
     }
   };
 
@@ -391,7 +393,7 @@ function TodayContent() {
     complete,
     remove,
     edit: (task) => {
-      if (task.event) router.push(`/actividad/${task.event}`);
+      setEditTask(task);
     },
   };
 
@@ -502,12 +504,16 @@ function TodayContent() {
         </section>
 
         {message && (
-          <p
+          <div
             role="status"
-            className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+            className="fixed right-6 top-6 z-[100] flex max-w-sm items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800 shadow-lg"
           >
-            {message}
-          </p>
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+            <span className="flex-1 font-semibold">{message}</span>
+            <button type="button" onClick={clearMessage} aria-label="Cerrar mensaje" className="rounded p-1 hover:bg-emerald-100">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         )}
 
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -641,13 +647,13 @@ function TodayContent() {
           task={selected}
           open={!!selected}
           onOpenChange={(open) => !open && setSelected(null)}
-          onSuccess={(description) => { if (!description) setMessage("Fecha actualizada correctamente"); }}
+          onSuccess={(description) => { if (!description) showMessage("Fecha actualizada correctamente"); }}
         />
         <PostponeModal
           task={postpone}
           open={!!postpone}
           onOpenChange={(open) => !open && setPostpone(null)}
-          onSuccess={() => setMessage("Subtarea pospuesta correctamente")}
+          onSuccess={(updated) => showMessage(updated?.scheduled_date ? `Subtarea pospuesta para ${updated.scheduled_date}` : "Subtarea pospuesta correctamente")}
         />
         <CompleteTaskModal
           task={completion}
@@ -657,6 +663,13 @@ function TodayContent() {
             if (!open && !completionInProgress.current) setCompletion(null);
           }}
           onSave={saveCompletion}
+        />
+        <TodayTaskEditModal
+          key={editTask?.id ?? "none"}
+          task={editTask}
+          open={!!editTask}
+          onOpenChange={(open) => !open && setEditTask(null)}
+          onSuccess={showMessage}
         />
       </main>
     </div>
