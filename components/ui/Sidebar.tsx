@@ -2,23 +2,43 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   LayoutGrid,
   LogOut,
   Settings,
   SlidersHorizontal,
+  CircleHelp,
 } from "lucide-react";
 import { useTasks } from "@/features/tasks/hooks/useTasks";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+
+const guide = [
+  { title: "Hoy", image: "/tutorial/Tutorial%20-%20Vista%20hoy%20vacia.png", description: "Aquí ves las subtareas pendientes organizadas por fecha. Busca, filtra por evento o estado y usa Reprogramar, Posponer, Completar y Editar en cada subtarea. El indicador superior resume las horas planificadas frente a tu límite diario." },
+  { title: "Eventos", image: "/tutorial/Tutorial%20-%20Eventos.png", description: "Consulta tus eventos, su avance y las subtareas asociadas. Abre un evento para revisar el plan; usa los controles de crear, editar o eliminar para mantenerlo actualizado." },
+  { title: "Configuración", image: "/tutorial/Tutorial%20-%20Configuracion.png", description: "Define el máximo de horas que deseas planificar por día. Si el nuevo límite afecta subtareas existentes, podrás reducir sus horas o eliminarlas aquí antes de guardar." },
+];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
   const activeToday = pathname === "/hoy";
   const activeEvents =
     pathname === "/actividad" || pathname.startsWith("/actividad/");
+  const activeSettings = pathname === "/configuracion";
   const { data } = useTasks();
+  useEffect(() => {
+    if (localStorage.getItem("eventcalendar_tutorial_pending") === "true") {
+      localStorage.removeItem("eventcalendar_tutorial_pending");
+      const timer = window.setTimeout(() => setShowGuide(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
   const taskList = Array.isArray(data) ? data : (data?.results ?? []);
   const todayCount = taskList.filter((task) =>
     ["pending", "in_progress", "postponed"].includes(task.status),
@@ -73,11 +93,14 @@ export default function Sidebar() {
             </Link>
             <Link
               href="/configuracion"
-              className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              className={`flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition ${activeSettings ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"}`}
             >
               <Settings className="h-4 w-4" />
               Configuración
             </Link>
+            <button type="button" onClick={() => { setGuideStep(0); setShowGuide(true); }} className="flex h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-100">
+              <CircleHelp className="h-4 w-4" />Información general
+            </button>
           </nav>
         </div>
         <div className="mt-auto border-t border-slate-100 p-3">
@@ -123,7 +146,27 @@ export default function Sidebar() {
         >
           <SlidersHorizontal className="h-5 w-5" />
         </Link>
+        <button type="button" aria-label="Información general" title="Información general" onClick={() => { setGuideStep(0); setShowGuide(true); }} className="cursor-pointer rounded-xl p-3 text-slate-600 hover:bg-slate-100">
+          <CircleHelp className="h-5 w-5" />
+        </button>
       </nav>
+      <Dialog open={showGuide} onOpenChange={setShowGuide}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Información general · {guideStep + 1} de {guide.length}</p>
+            <DialogTitle className="text-xl">{guide[guideStep].title}</DialogTitle>
+            <DialogDescription>{guide[guideStep].description}</DialogDescription>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+            <img src={guide[guideStep].image} alt={`Captura de la pantalla ${guide[guideStep].title}`} className="block h-auto max-h-[min(52vh,390px)] w-full object-contain object-top" />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-1.5" aria-label="Pantallas del tutorial">{guide.map((page, index) => <button key={page.image} type="button" aria-label={`Mostrar ${page.title}`} onClick={() => setGuideStep(index)} className={`h-2.5 w-2.5 cursor-pointer rounded-full ${index === guideStep ? "bg-indigo-600" : "bg-slate-300"}`} />)}</div>
+            <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setGuideStep((step) => Math.max(0, step - 1))} disabled={guideStep === 0}>Anterior</Button>{guideStep < guide.length - 1 ? <Button type="button" onClick={() => setGuideStep((step) => Math.min(guide.length - 1, step + 1))}>Siguiente</Button> : <Button type="button" onClick={() => setShowGuide(false)}>Listo</Button>}</div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+

@@ -6,6 +6,7 @@ import apiClient from "@/lib/axios";
 import { useQueryClient } from "@tanstack/react-query";
 
 import Sidebar from "@/components/ui/Sidebar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import CreateEventModal, {
   CreatedEvent,
 } from "@/components/ui/CreateEventModal";
@@ -246,6 +247,7 @@ function EventsListContent() {
 
   // Evento que se está editando
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
 
   // ============================================================
   // FILTROS Y PAGINACIÓN
@@ -311,7 +313,7 @@ function EventsListContent() {
   // ============================================================
 
   useEffect(() => {
-    void loadEvents();
+    void Promise.resolve().then(loadEvents);
   }, [loadEvents]);
 
   // ============================================================
@@ -332,7 +334,7 @@ function EventsListContent() {
     } catch (error) {
       console.error("Error al cargar el evento para editar:", error);
 
-      alert("No fue posible cargar la información del evento.");
+      showErrorMessage("No fue posible cargar la información del evento.");
     }
   };
 
@@ -341,14 +343,6 @@ function EventsListContent() {
   // ============================================================
 
   const handleDeleteEvent = async (eventId: number) => {
-    const confirmed = window.confirm(
-      "¿Estás seguro de que deseas eliminar este evento?",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     try {
       await apiClient.delete(`/events/${eventId}/`);
 
@@ -357,12 +351,14 @@ function EventsListContent() {
         currentEvents.filter((event) => event.id !== eventId),
       );
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["events"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
       showSuccessMessage("Evento eliminado exitosamente.");
     } catch (error) {
       console.error("Error al eliminar el evento:", error);
 
-      alert("No fue posible eliminar el evento.");
+      showErrorMessage("No fue posible eliminar el evento.");
     }
   };
 
@@ -415,6 +411,7 @@ function EventsListContent() {
         // Mensaje de éxito
         if (!conflictResolution) showSuccessMessage("Evento actualizado exitosamente.");
         await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["events"] }),
           queryClient.invalidateQueries({ queryKey: ["tasks"] }),
           queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         ]);
@@ -439,6 +436,7 @@ function EventsListContent() {
       // 4. Mostrar mensaje de éxito
       if (!conflictResolution) showSuccessMessage("Evento guardado exitosamente.");
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["events"] }),
         queryClient.invalidateQueries({ queryKey: ["tasks"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
@@ -577,7 +575,7 @@ function EventsListContent() {
       <main className="ml-64 min-h-screen p-8">
         {/* TOAST DE ÉXITO */}
         {successMessage && (
-          <div className="fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl border border-green-200 bg-white px-5 py-4 shadow-lg">
+          <div className="fixed left-1/2 top-1/2 z-[100] flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-xl border border-green-200 bg-white px-5 py-4 shadow-xl">
             <span className="material-symbols-outlined text-green-600">
               check_circle
             </span>
@@ -593,7 +591,7 @@ function EventsListContent() {
         {/* TOAST DE ERROR */}
         {errorMessage && (
           <div
-            className="fixed right-6 top-6 z-[100] rounded-xl border border-red-200 bg-white px-5 py-4 shadow-lg"
+            className="fixed left-1/2 top-1/2 z-[100] w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-red-200 bg-white px-5 py-4 shadow-xl"
             role="alert"
           >
             <p className="text-sm font-semibold text-red-800">
@@ -853,7 +851,7 @@ function EventsListContent() {
                               {/* ELIMINAR */}
                               <button
                                 type="button"
-                                onClick={() => handleDeleteEvent(event.id)}
+                                onClick={() => setEventToDelete(event)}
                                 title="Eliminar evento"
                                 aria-label={`Eliminar ${event.title}`}
                                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition hover:bg-red-50 hover:text-red-600"
@@ -949,6 +947,7 @@ function EventsListContent() {
         onSave={handleEventSaved}
         eventToEdit={eventToEdit}
       />
+      <ConfirmDialog open={!!eventToDelete} title="Eliminar evento" description={`¿Quieres eliminar “${eventToDelete?.title ?? ""}”? Se eliminarán también sus subtareas.`} onCancel={() => setEventToDelete(null)} onConfirm={() => { if (!eventToDelete) return; const id = eventToDelete.id; setEventToDelete(null); void handleDeleteEvent(id); }} />
     </div>
   );
 }

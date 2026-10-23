@@ -181,6 +181,14 @@
         @apply bg-background text-foreground;
         font-family: "Plus Jakarta Sans", sans-serif;
     }
+
+    :is(button, a, summary, select, label[for], [role="button"], [role="menuitem"], [role="tab"], [role="option"], [role="switch"], [role="checkbox"], [role="radio"]) {
+        cursor: pointer;
+    }
+
+    :is(button, [role="button"]):disabled {
+        cursor: not-allowed;
+    }
 }
 /*
  * Entra desde la izquierda, se queda quieto y sale hacia la derecha.

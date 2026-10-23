@@ -23,6 +23,7 @@ import { RescheduleModal } from "@/features/tasks/components/RescheduleModal";
 import { PostponeModal } from "@/features/tasks/components/PostponeModal";
 import { CompleteTaskModal } from "@/features/tasks/components/CompleteTaskModal";
 import { TodayTaskEditModal } from "@/features/tasks/components/TodayTaskEditModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   useTasks,
   useUpdateTaskStatus,
@@ -257,6 +258,8 @@ function TodayContent() {
   const [completion, setCompletion] = useState<Task | null>(null);
   const [completionOpen, setCompletionOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
+  const [deleteTask, setDeleteTask] = useState<Task | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [optimistic, setOptimistic] = useState<Record<number, TaskStatus>>({});
   const [search, setSearch] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
@@ -378,13 +381,8 @@ function TodayContent() {
   };
 
   const remove = async (task: Task) => {
-    if (!window.confirm(`¿Eliminar “${task.title}”?`)) return;
-    try {
-      await deleteMutation.mutateAsync(task.id);
-      showMessage("Subtarea eliminada");
-    } catch {
-      showMessage("No se pudo eliminar la subtarea.");
-    }
+    setDeleteError("");
+    setDeleteTask(task);
   };
 
   const actions: Actions = {
@@ -671,6 +669,7 @@ function TodayContent() {
           onOpenChange={(open) => !open && setEditTask(null)}
           onSuccess={showMessage}
         />
+        <ConfirmDialog open={!!deleteTask} title="Eliminar subtarea" description={`¿Quieres eliminar “${deleteTask?.title ?? ""}”? Esta acción quitará la subtarea del evento.`} error={deleteError} busy={deleteMutation.isPending} onCancel={() => { setDeleteTask(null); setDeleteError(""); }} onConfirm={() => { if (!deleteTask) return; void deleteMutation.mutateAsync(deleteTask.id).then(() => { setDeleteTask(null); showMessage("Subtarea eliminada"); }).catch(() => setDeleteError("No se pudo eliminar la subtarea. Inténtalo de nuevo.")); }} />
       </main>
     </div>
   );

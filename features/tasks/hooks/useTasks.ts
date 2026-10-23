@@ -42,6 +42,7 @@ export function useCreateTask() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ["events"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
@@ -56,6 +57,7 @@ export function useUpdateTask(id: number) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
         qc.invalidateQueries({ queryKey: taskQueryKey(id) }),
+        qc.invalidateQueries({ queryKey: ["events"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
@@ -72,6 +74,7 @@ export function useUpdateTaskStatus() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ["events"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
@@ -86,6 +89,7 @@ export function usePostponeTask(id: number) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
         qc.invalidateQueries({ queryKey: taskQueryKey(id) }),
+        qc.invalidateQueries({ queryKey: ["events"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
@@ -99,6 +103,7 @@ export function useDeleteTask() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ["events"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
@@ -113,6 +118,7 @@ export function useRescheduleTask(id: number) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: TASKS_QUERY_KEY }),
         qc.invalidateQueries({ queryKey: taskQueryKey(id) }),
+        qc.invalidateQueries({ queryKey: ["events"] }),
         qc.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
