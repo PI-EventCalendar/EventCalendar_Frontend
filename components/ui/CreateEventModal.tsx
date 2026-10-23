@@ -815,13 +815,9 @@ function CreateEventModalContent({
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-        // Click fuera del modal: se cierra.
-        onClick={onClose}
       >
         <div
           className="relative w-full max-w-6xl max-h-[96vh] overflow-hidden rounded-2xl bg-white shadow-2xl"
-          // Evita que un click dentro del modal lo cierre.
-          onClick={(event) => event.stopPropagation()}
         >
           {/* ================================================================
               HEADER

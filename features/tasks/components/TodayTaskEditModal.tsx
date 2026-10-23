@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useDeleteTask, useUpdateTask, useUpdateTaskStatus } from "../hooks/useTasks";
 import type { Task } from "../types";
 
@@ -22,6 +23,7 @@ export function TodayTaskEditModal({
   const [title, setTitle] = useState(task?.title ?? "");
   const [hours, setHours] = useState(String(task?.estimated_hours ?? ""));
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const update = useUpdateTask(task?.id ?? 0);
   const status = useUpdateTaskStatus();
   const remove = useDeleteTask();
@@ -61,10 +63,11 @@ export function TodayTaskEditModal({
   };
 
   const deleteTask = async () => {
-    if (!task || !window.confirm(`¿Eliminar “${task.title}”?`)) return;
+    if (!task) return;
     setError("");
     try {
       await remove.mutateAsync(task.id);
+      setConfirmDelete(false);
       onOpenChange(false);
       onSuccess?.("Subtarea eliminada");
     } catch {
@@ -90,7 +93,7 @@ export function TodayTaskEditModal({
           </div>
           {error && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</p>}
           <div className="flex flex-wrap justify-between gap-2 border-t pt-3">
-            <Button type="button" variant="destructive" onClick={() => void deleteTask()} disabled={pending}>Eliminar</Button>
+            <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)} disabled={pending}>Eliminar</Button>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={close} disabled={pending}>Cancelar</Button>
               <Button type="button" variant="outline" onClick={() => void complete()} disabled={pending || task?.status === "completed"}>Completar</Button>
@@ -99,6 +102,7 @@ export function TodayTaskEditModal({
           </div>
         </div>
       </DialogContent>
+      <ConfirmDialog open={confirmDelete} title="Eliminar subtarea" description={`¿Quieres eliminar “${task?.title ?? ""}”? Esta acción quitará la subtarea del evento.`} busy={pending} onCancel={() => setConfirmDelete(false)} onConfirm={() => void deleteTask()} />
     </Dialog>
   );
 }
